@@ -1,0 +1,118 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --font-display: "Cinzel", serif;
+  --font-serif: "EB Garamond", serif;
+  --font-label: "Barlow Condensed", sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brass: var(--brass);
+  --color-parchment: var(--parchment);
+  --color-ink: var(--ink);
+  --color-verdigris: var(--verdigris);
+  --color-rust: var(--rust);
+}
+
+:root {
+  --radius: 0.25rem;
+  --background: oklch(0.2 0.02 55);
+  --foreground: oklch(0.9 0.03 80);
+  --card: oklch(0.24 0.02 55);
+  --card-foreground: oklch(0.9 0.03 80);
+  --popover: oklch(0.24 0.02 55);
+  --popover-foreground: oklch(0.9 0.03 80);
+  --primary: oklch(0.74 0.12 75);
+  --primary-foreground: oklch(0.2 0.02 55);
+  --secondary: oklch(0.28 0.02 55);
+  --secondary-foreground: oklch(0.9 0.03 80);
+  --muted: oklch(0.28 0.02 55);
+  --muted-foreground: oklch(0.72 0.04 75);
+  --accent: oklch(0.32 0.03 60);
+  --accent-foreground: oklch(0.9 0.03 80);
+  --destructive: oklch(0.58 0.15 30);
+  --destructive-foreground: oklch(0.95 0.02 80);
+  --border: oklch(0.42 0.05 65);
+  --input: oklch(0.42 0.05 65);
+  --ring: oklch(0.74 0.12 75);
+  --brass: oklch(0.74 0.12 75);
+  --parchment: oklch(0.88 0.05 85);
+  --ink: oklch(0.25 0.03 55);
+  --verdigris: oklch(0.62 0.08 185);
+  --rust: oklch(0.6 0.14 40);
+  --vignette: radial-gradient(ellipse at 30% 30%, oklch(0.26 0.025 55), oklch(0.15 0.015 50) 75%);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  body {
+    background: var(--vignette);
+    background-attachment: fixed;
+    color: var(--color-foreground);
+    font-family: var(--font-serif);
+    min-height: 100vh;
+  }
+}
+
+@utility label-caps {
+  font-family: var(--font-label);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+}
+
+@utility brass-frame {
+  border: 1px solid color-mix(in oklab, var(--brass) 45%, transparent);
+  box-shadow: inset 0 0 0 4px var(--background), inset 0 0 0 5px color-mix(in oklab, var(--brass) 25%, transparent);
+}
+
+@utility btn-base {
+  font-family: var(--font-label);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  transition: background-color 150ms, border-color 150ms, filter 150ms;
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+@utility btn-brass {
+  @apply btn-base;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+  &:hover:not(:disabled) { filter: brightness(1.1); }
+}
+@utility btn-ghost {
+  @apply btn-base;
+  &:hover:not(:disabled) { background: var(--accent); border-color: var(--brass); }
+}
+@utility btn-danger {
+  @apply btn-base;
+  color: var(--destructive);
+  &:hover:not(:disabled) { background: color-mix(in oklab, var(--destructive) 15%, transparent); }
+}

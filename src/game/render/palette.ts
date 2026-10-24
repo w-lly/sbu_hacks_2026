@@ -1,0 +1,21 @@
+/** Canvas palette. Mirrors the CSS tokens in src/styles.css (canvas cannot read Tailwind classes). */
+export const PALETTE = {
+  parchment: "#e9dbb8",
+  parchmentDark: "#d9c69c",
+  outside: "#2a1f16",
+  ink: "#3a2a1c",
+  inkSoft: "rgba(58,42,28,0.35)",
+  grid: "rgba(58,42,28,0.07)",
+  water: "#8eb0a5",
+  waterLine: "rgba(40,70,70,0.25)",
+  woods: "rgba(92,110,58,0.42)",
+  woodsHatch: "rgba(60,75,35,0.35)",
+  wetland: "rgba(110,130,105,0.35)",
+  park: "rgba(140,160,90,0.3)",
+  contour: "rgba(120,80,40,0.28)",
+  station: "#f6eedb",
+  brass: "#c9973f",
+  danger: "#b5432f",
+  steam: "rgba(245,240,230,0.55)",
+  resource: { coal: "#2b2420", barracks: "#7a4b2a", repair: "#5b6b73", foundry: "#b0602c" },
+} as const;
