@@ -3,6 +3,15 @@ import type { EngineerFeedback, NetworkMetrics } from "./types";
 import { CONCEPTS } from "./concepts";
 
 export function fallbackFeedback(m: NetworkMetrics): EngineerFeedback {
+  if (m.factory) {
+    const f = m.factory;
+    const notes = [
+      `${f.companiesWorking}/${f.companiesTotal} companies are supplied. Connect collection hubs to foundries and sawmills before feeding machine works.`,
+      `${f.products} products made; ${m.delivered} freight crates delivered. Add freight carriages where hub stock is backing up.`,
+      `${f.contractsCompleted} contracts fulfilled, ${f.contractsMissed} missed. Prioritize the company with the nearest deadline.`,
+    ];
+    return { headline: f.products > 10 ? "Industry turns on a well-fed railway" : "The mills await their supply lines", notes, source: "fallback", concept: { title: "Production chains", body: "Iron and coal become steel; timber becomes planks. Feed steel and planks into machine works, then carry machinery to exporters. Every stage needs its own reliable supply." } };
+  }
   const notes: string[] = [];
   let concept: { title: string; body: string } = CONCEPTS.coverage;
   if (m.coverage < 0.75) {

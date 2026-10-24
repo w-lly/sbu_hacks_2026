@@ -14,9 +14,11 @@ export const Route = createFileRoute("/play/$map")({
   head: ({ loaderData }) => ({
     meta: [
       { title: `${loaderData?.name ?? "Survey"} — Brassworks Transit` },
-      { name: "description", content: `Build a steam transit network across the real ground of ${loaderData?.name ?? "the city"}.` },
+      { name: "description", content: `Build an industrial freight network across the real ground of ${loaderData?.name ?? "the city"}.` },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { property: "og:title", content: `${loaderData?.name ?? "Survey"} — Brassworks Transit` },
-      { property: "og:description", content: "Lay the rails. Move the city. Learn why it works." },
+      { property: "og:description", content: "Collect resources, supply companies and fulfill industrial contracts." },
     ],
   }),
   pendingComponent: () => (

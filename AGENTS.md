@@ -19,3 +19,5 @@
 - All balance numbers live in `src/game/config.ts`; grading weights and cutoffs live in `src/game/scoring.ts` and are covered by `src/game/game.test.ts`. Why: designers can tune without touching logic, and tests catch grading regressions.
 - `src/components/game/useGameSession.ts` is the only bridge between the engine and React; UI components read live `Game` state and re-render on its tick. Why: avoids copying sim state into React.
 - Runs are seeded (`src/game/rng.ts`); never use `Math.random()` inside the engine. Why: the baseline comparison replays the same seed.
+- Active factory gameplay lives in framework-free `src/game/factory.ts` with recipes/types in `src/shared/factory.ts`; the original passenger engine remains isolated for legacy tests, not active gameplay. Why: the logistics pivot preserves map data and backend boundaries without mixing two simulation models.
+- Factory reports add optional freight-specific metrics to the shared network contract and its server validator; interpret compatibility fields as freight only when factory details are present. Why: weekly AI and reports remain compatible while naming the new domain correctly.

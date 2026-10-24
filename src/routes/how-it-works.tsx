@@ -1,27 +1,28 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CONCEPTS } from "@/shared/concepts";
+import { RECIPES, GOODS, type Commodity } from "@/shared/factory";
 
 export const Route = createFileRoute("/how-it-works")({
   head: () => ({
     meta: [
       { title: "How the Works Work — Brassworks Transit" },
-      { name: "description", content: "Rules of Brassworks Transit: districts, terrain, crossings, depots, pneumatic tubes and grading." },
+      { name: "description", content: "Factory logistics rules: collection hubs, freight railways, production chains and company contracts." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { property: "og:title", content: "How the Works Work — Brassworks Transit" },
-      { property: "og:description", content: "Learn the rules of the Gilded Age transit game." },
+      { property: "og:description", content: "Learn how to supply industrial companies on real terrain." },
     ],
   }),
   component: How,
 });
 
 const rules = [
-  ["Districts", "Real places are chartered over time. Circles are commuters, squares students, triangles shoppers. Each rider wants the nearest district of their shape. Commuters surge at the morning and evening rush."],
-  ["Laying track", "Pick a line, then click districts. Track comes from a limited budget, and real ground sets the price: woods, marsh, parks and steep hills cost more. Each line needs a locomotive. Click a line's first stop again to close a loop."],
-  ["Water", "Every stretch of water needs a crossing. Bridges are cheap but only span short gaps; wider water needs a tunnel."],
-  ["Depots", "Coal depots, crew barracks, repair yards and iron foundries appear at random. Run a line to a station near one to claim it. Trains without coal crawl, tired crews dwell longer, and worn boilers break down."],
-  ["Pneumatic tubes", "A fast point-to-point express with two stops and a short range. It needs no coal, like Beach's 1870 tube under Broadway."],
-  ["Weekly requisition", "At the end of each of the 8 weeks you get more rails and pick one shipment: locomotive, carriage, tunnel, bridge, interchange, tube or extra rails."],
-  ["Failure", "If a district has more riders waiting than its platform holds for too long, the board revokes your charter. Riders who wait too long give up, and that counts against you."],
-  ["Grading", "Your grade weighs service (40%), coverage (25%), resilience to a single station failing (20%) and riders per unit of track (15%), then scales it by how many weeks you lasted. One straight line will not pass."],
+  ["Collection hubs", "All companies and deposits are present from the start. Drag an iron, coal or timber facility onto dry land within collection range of a matching deposit. You can also select a facility and click the map. Hubs cost 100 credits and automatically gather crates until storage fills."],
+  ["Freight railways", "Select a freight route, then click hubs and companies in stop order. A locomotive begins running when the second stop is connected. Cargo is loaded automatically for reachable companies that need it; shared stops allow transfers between routes."],
+  ["Production", "Companies retain their recipe inputs and export their outputs. Supply iron and coal to ironworks, timber to sawmills, steel and planks to machine works, and machinery and planks to export houses. Each production cycle pays credits."],
+  ["Terrain and crossings", "Real forests, marshes and hills increase rail costs; steep terrain slows freight. Bridges and tunnels are automatically spent when a route crosses water. Wide crossings require tunnels."],
+  ["Orders", "Companies continuously consume recipe ingredients. Timed contracts add bonus demand: deliver the requested crates before the deadline for 150 credits. Missed contracts cost 60 credits; they do not erase your factories."],
+  ["Weekly shipments", "Each week brings rails and credits plus a choice of one upgrade: collection facilities, locomotives, carriages, crossings, rails or pneumatic freight. The simulation pauses while you choose."],
+  ["Industrial report", "The eight-week charter is graded on delivery service, company coverage, route diversity and freight per rail unit. Short runs are penalized, and a single freight route cannot pass. The Chief Engineer reviews your production and contract results."],
 ];
 
 function How() {
@@ -39,8 +40,8 @@ function How() {
         </dl>
         <h2 className="mt-12 font-display text-2xl text-brass">Engineering primer</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {Object.values(CONCEPTS).map((c) => (
-            <div key={c.title}><p className="font-display text-lg">{c.title}</p><p className="text-muted-foreground">{c.body}</p></div>
+          {Object.values(RECIPES).map((c) => (
+            <div key={c.label}><p className="font-display text-lg">{c.label}</p><p className="text-muted-foreground">{Object.entries(c.inputs).map(([k,n]) => `${n} ${GOODS[k as Commodity].label}`).join(" + ")} → {c.output ? `${c.quantity} ${GOODS[c.output].label}` : "Exports"}</p></div>
           ))}
         </div>
         <Link to="/" className="btn-brass mt-10 inline-block">Back to charters</Link>

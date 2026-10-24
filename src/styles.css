@@ -116,3 +116,8 @@
   color: var(--destructive);
   &:hover:not(:disabled) { background: color-mix(in oklab, var(--destructive) 15%, transparent); }
 }
+
+.factory-progress { height: 6px; appearance: none; border: 0; background: var(--muted); }
+.factory-progress::-webkit-progress-bar { background: var(--muted); }
+.factory-progress::-webkit-progress-value { background: var(--primary); }
+.factory-progress::-moz-progress-bar { background: var(--primary); }

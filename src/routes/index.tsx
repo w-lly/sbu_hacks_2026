@@ -6,9 +6,11 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Brassworks Transit — Choose Your Charter" },
-      { name: "description", content: "A Gilded Age transit-baron game on real Long Island and New York ground." },
+      { name: "description", content: "A steampunk factory rail-logistics game on real Long Island and New York terrain." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { property: "og:title", content: "Brassworks Transit" },
-      { property: "og:description", content: "Lay the rails. Move the city. Learn why it works." },
+      { property: "og:description", content: "Lay the rails. Feed the factories. Forge an empire." },
     ],
   }),
   loader: () => listCharters(),
@@ -33,18 +35,18 @@ function Index() {
           <h1 className="mt-3 font-display text-6xl font-bold text-brass md:text-7xl">BRASSWORKS</h1>
           <p className="font-display text-4xl tracking-[0.35em] text-foreground">TRANSIT</p>
           <div className="my-6 flex items-center gap-3 text-brass"><span className="h-px flex-1 bg-brass/50" />◆<span className="h-px flex-1 bg-brass/50" /></div>
-          <p className="text-2xl italic">Lay the rails. Move the city. Learn why it works.</p>
+          <p className="text-2xl italic">Lay the rails. Feed the factories. Forge an empire.</p>
           <p className="mt-3 max-w-md text-lg text-muted-foreground">
-            Survey real Long Island and New York ground, connect rising districts, and let the Chief Engineer show you what your network is really doing.
+            Connect iron, coal and timber to industrial companies across real New York terrain. Build supply chains, fulfill contracts and keep the works turning.
           </p>
           <div className="mt-8 flex flex-wrap gap-4">
-            <Link to="/play/$map" params={{ map: "setauket" }} className="label-caps bg-primary px-6 py-3 text-sm text-primary-foreground transition hover:brightness-110">Begin Survey</Link>
+            <Link to="/play/$map" params={{ map: "setauket" }} className="label-caps bg-primary px-6 py-3 text-sm text-primary-foreground transition hover:brightness-110">Begin Charter</Link>
             <Link to="/how-it-works" className="label-caps border border-border px-6 py-3 text-sm transition hover:bg-accent">How the works work</Link>
           </div>
         </section>
         <section>
           <h2 className="font-display text-3xl font-semibold">Choose Your Charter</h2>
-          <p className="label-caps mb-5 text-xs text-brass">Real ground · districts drafted by AI</p>
+          <p className="label-caps mb-5 text-xs text-brass">Real ground · industrial companies</p>
           <div className="space-y-4">
             {charters.map((m) => (
               <div key={m.slug} className="flex gap-4 border border-border bg-card/70 p-3 transition hover:border-brass">
@@ -54,10 +56,10 @@ function Index() {
                     <Link to="/play/$map" params={{ map: m.slug }} className="font-display text-lg font-semibold hover:text-brass">{m.name}</Link>
                     <span className={`label-caps border px-1.5 py-0.5 text-[10px] ${badge[m.difficulty]}`}>{m.difficulty}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{m.blurb}</p>
+                  <p className="text-sm text-muted-foreground">{m.difficulty === "Tutorial" ? "Coastal mills and woodland supplies." : m.difficulty === "Hard" ? "River crossings and a dense industrial market." : "An inland corridor of interconnected industries."}</p>
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <p className="label-caps text-[11px] text-brass">{m.districtCount} districts · real terrain</p>
-                    <Link to="/play/$map" params={{ map: m.slug }} search={{ ai: true }} className="label-caps text-[11px] text-verdigris hover:underline">Draft new city with AI →</Link>
+                    <p className="label-caps text-[11px] text-brass">{m.districtCount} companies · real terrain</p>
+                    <Link to="/play/$map" params={{ map: m.slug }} className="label-caps text-[11px] text-verdigris hover:underline">Open charter →</Link>
                   </div>
                 </div>
               </div>

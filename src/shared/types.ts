@@ -79,6 +79,8 @@ export interface StartingKit {
 
 /** Computed by the engine, sent to the Chief Engineer. */
 export interface NetworkMetrics {
+  /** Freight-mode details; legacy fields remain wire-compatible for existing reports. */
+  factory?: { revenue: number; products: number; contractsCompleted: number; contractsMissed: number; companiesWorking: number; companiesTotal: number; hubs: number } | undefined;
   week: number;
   delivered: number;
   stranded: number;

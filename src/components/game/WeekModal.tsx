@@ -1,19 +1,19 @@
-import type { Game } from "@/game/engine";
+import type { FactoryGame } from "@/game/factory";
 import type { EngineerFeedback } from "@/shared/types";
-import { Modal } from "./ui";
+import { Btn, Modal } from "./ui";
 
-export function WeekModal({ game, week, feedback, onPick }: { game: Game; week: number; feedback: EngineerFeedback | null; onPick: (i: number) => void }) {
+export function WeekModal({ game, week, feedback, onPick }: { game: FactoryGame; week: number; feedback: EngineerFeedback | null; onPick: (i: number) => void }) {
   return (
     <Modal>
       <p className="label-caps text-xs text-brass">End of week {week} · requisition</p>
       <h2 className="font-display text-2xl">The board grants you one shipment</h2>
-      <p className="text-sm text-muted-foreground">Plus the usual allotment of rails. A new depot has been surveyed on the map.</p>
+      <p className="text-sm text-muted-foreground">The board supplies additional rails and operating credits.</p>
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         {game.offers.map((o, i) => (
-          <button key={o.id} onClick={() => onPick(i)} className="border border-border bg-background/40 p-3 text-left transition hover:border-brass hover:bg-accent">
+          <Btn key={o.id} onClick={() => onPick(i)} className="border border-border bg-background/40 p-3 text-left transition hover:border-brass hover:bg-accent">
             <div className="font-display text-lg text-brass">{o.label}</div>
             <div className="text-sm text-muted-foreground">{o.description}</div>
-          </button>
+          </Btn>
         ))}
       </div>
       <div className="mt-5 border-t border-border pt-4">

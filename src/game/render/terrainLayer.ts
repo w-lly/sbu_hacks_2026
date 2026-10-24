@@ -4,10 +4,11 @@ import type { Game } from "../engine";
 import type { Pt } from "../projection";
 import { PALETTE } from "./palette";
 
-export function renderTerrainLayer(game: Game, width: number, height: number, scale = 1): HTMLCanvasElement {
+export function renderTerrainLayer(game: Pick<Game, "terrain" | "charter">, width: number, height: number, scale = 1): HTMLCanvasElement {
   const cv = document.createElement("canvas");
   cv.width = width * scale; cv.height = height * scale;
-  const ctx = cv.getContext("2d")!;
+  const ctx = cv.getContext("2d");
+  if (!ctx) return cv;
   ctx.scale(scale, scale);
   const { terrain } = game;
   const b = terrain.bounds;

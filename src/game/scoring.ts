@@ -19,7 +19,7 @@ export function scoreBreakdown(m: NetworkMetrics) {
   };
   const transferPenalty = Math.max(0, m.transfersPerTrip - 1) * 8;
   const raw = (Object.keys(WEIGHTS) as (keyof typeof WEIGHTS)[]).reduce((s, k) => s + WEIGHTS[k] * parts[k], 0) * 100 * survivalFactor(parts.survival);
-  const score = Math.max(0, Math.round(raw - transferPenalty));
+  const score = Math.min(m.factory && m.linesBuilt < 2 ? 63 : 100, Math.max(0, Math.round(raw - transferPenalty)));
   return { parts, transferPenalty, score, grade: gradeFor(score) };
 }
 

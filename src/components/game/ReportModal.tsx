@@ -1,35 +1,29 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { runBaseline } from "@/game/baseline";
-import type { Game } from "@/game/engine";
+import type { FactoryGame } from "@/game/factory";
 import { scoreBreakdown, WEIGHTS } from "@/game/scoring";
 import { getEngineerFeedback } from "@/backend/functions/engineer.functions";
 import { fallbackFeedback } from "@/shared/engineer-rules";
 import type { EngineerFeedback, NetworkMetrics } from "@/shared/types";
 import { Btn, Modal } from "./ui";
 
-const PART_LABEL = { service: "Service", coverage: "Coverage", resilience: "Resilience", efficiency: "Track efficiency", survival: "Weeks survived" } as const;
+const PART_LABEL = { service: "Order service", coverage: "Company coverage", resilience: "Route diversity", efficiency: "Track efficiency", survival: "Charter duration" } as const;
 
-export function ReportModal({ game, metrics, seed, onRetry }: { game: Game; metrics: NetworkMetrics; seed: number; onRetry: () => void }) {
+export function ReportModal({ game, metrics, onRetry }: { game: FactoryGame; metrics: NetworkMetrics; seed: number; onRetry: () => void }) {
   const result = scoreBreakdown(metrics);
-  const [feedback, setFeedback] = useState<EngineerFeedback | null>(null);
-  const [baseline, setBaseline] = useState<ReturnType<typeof scoreBreakdown> | null>(null);
+  const [feedback, setFeedback] = useState<EngineerFeedback | null>(() => fallbackFeedback(metrics));
 
   useEffect(() => {
     getEngineerFeedback({ data: { metrics, final: true } }).catch(() => fallbackFeedback(metrics)).then(setFeedback);
-    // headless greedy run on the same charter and seed, deferred so the modal paints first
-    const t = setTimeout(() => setBaseline(scoreBreakdown(runBaseline(game.charter, seed, Math.max(1, metrics.week)))), 50);
-    return () => clearTimeout(t);
-  }, [metrics, game, seed]);
+  }, [metrics, game]);
 
-  const failed = game.failedStation !== null ? game.stations[game.failedStation]! : null;
+
   return (
     <Modal wide>
       <p className="label-caps text-xs text-brass">Blueprint report</p>
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="font-display text-3xl">{failed ? "Charter revoked" : game.phase === "complete" ? "Charter fulfilled" : "Survey filed"}</h2>
-          {failed && <p className="text-sm italic text-destructive">{failed.name} was overrun with waiting riders.</p>}
+          <h2 className="font-display text-3xl">{game.phase === "complete" ? "Industrial charter fulfilled" : "Industrial report filed"}</h2>
         </div>
         <div className="text-right">
           <div className="font-display text-6xl leading-none text-brass">{result.grade}</div>
@@ -51,17 +45,16 @@ export function ReportModal({ game, metrics, seed, onRetry }: { game: Game; metr
           ))}
           {result.transferPenalty > 0 && <p className="text-sm text-destructive">Transfer penalty: −{Math.round(result.transferPenalty)}</p>}
           <div className="mt-3 grid grid-cols-2 gap-x-4 text-sm">
-            <Row k="Delivered" v={metrics.delivered} /><Row k="Gave up" v={metrics.stranded} />
+            <Row k="Delivered" v={metrics.delivered} /><Row k="Missed units" v={metrics.stranded} />
             <Row k="Avg trip" v={`${metrics.avgTripSeconds.toFixed(1)}s`} /><Row k="Avg wait" v={`${metrics.avgWaitSeconds.toFixed(1)}s`} />
-            <Row k="Transfers/trip" v={metrics.transfersPerTrip.toFixed(2)} /><Row k="Breakdowns" v={metrics.breakdowns} />
-            <Row k="Track laid" v={metrics.trackUsed} /><Row k="Depots linked" v={`${metrics.resourcesClaimed}/${metrics.resourcesTotal}`} />
+            <Row k="Transfers/trip" v={metrics.transfersPerTrip.toFixed(2)} /><Row k="Products made" v={metrics.factory?.products ?? 0} />
+            <Row k="Track laid" v={metrics.trackUsed} /><Row k="Deposits collected" v={`${metrics.resourcesClaimed}/${metrics.resourcesTotal}`} />
           </div>
-          <div className="mt-3 border border-border p-3 text-sm">
-            <p className="label-caps text-[11px] text-brass">Versus a greedy surveyor</p>
-            {baseline ? (
-              <p>A naive nearest-neighbour planner on the same ground scored <b className="font-display">{baseline.grade} ({baseline.score})</b>.{" "}
-                {result.score > baseline.score ? "You out-engineered the algorithm." : result.score === baseline.score ? "A dead heat." : "The algorithm beat you this time."}</p>
-            ) : <p className="animate-pulse italic text-muted-foreground">Running the comparison…</p>}
+          <div className="mt-3 grid grid-cols-2 gap-x-4 text-sm">
+            <Row k="Revenue" v={`${metrics.factory?.revenue ?? 0} cr`} />
+            <Row k="Contracts fulfilled" v={metrics.factory?.contractsCompleted ?? 0} />
+            <Row k="Contracts missed" v={metrics.factory?.contractsMissed ?? 0} />
+            <Row k="Companies producing" v={`${metrics.factory?.companiesWorking ?? 0}/${metrics.factory?.companiesTotal ?? 0}`} />
           </div>
         </div>
         <div>
@@ -83,7 +76,7 @@ export function ReportModal({ game, metrics, seed, onRetry }: { game: Game; metr
       </div>
 
       <div className="mt-6 flex gap-3">
-        <Btn variant="brass" className="flex-1" onClick={onRetry}>Survey again</Btn>
+        <Btn variant="brass" className="flex-1" onClick={onRetry}>Start a new charter</Btn>
         <Link to="/" className="btn-ghost flex-1 text-center">Charters</Link>
       </div>
     </Modal>

@@ -18,6 +18,14 @@ const RAW = {
   tube: { maxLength: 230 },
   resources: { claimRadius: 60, initial: { coal: 2, barracks: 1, repair: 1, foundry: 1 }, foundryTrack: 250, minStationGap: 36 },
   scoring: { ridersPerTrackTarget: 0.2 },
+  factory: {
+    startingCredits: 1200, startingTrack: 1800, startingLocomotives: 5, startingHubs: 6,
+    hubCost: 100, collectionRadius: 85, placementGap: 30, hubCapacity: 36,
+    companyCapacity: 24, depositStock: 800, depositsPerKind: 3, collectionSeconds: 1.5,
+    contractQuantity: 8, contractSeconds: 100, contractInterval: 75,
+    contractReward: 150, contractPenalty: 60, productionSeconds: 5,
+    inputTarget: 12, productPrice: 18, weeklyCredits: 150,
+  },
 } as const;
 
 export const CONFIG: DeepNumber<typeof RAW> = RAW as never;

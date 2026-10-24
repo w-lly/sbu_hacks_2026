@@ -3,15 +3,21 @@ import type { EngineerFeedback, NetworkMetrics } from "@/shared/types";
 import { fallbackFeedback } from "@/shared/engineer-rules";
 import { askJson } from "./ai.server";
 
-const SYSTEM = `You are the Chief Engineer of a Gilded Age transit company. Speak in a crisp, slightly Victorian voice.
-You receive metrics about the player's rail network. Diagnose its real weaknesses using transit-planning concepts
-(hub-and-spoke vs grid, headways, redundancy, coverage, transfers, express vs local, fuel and maintenance logistics).
+const SYSTEM = `You are the Chief Engineer of a Gilded Age industrial freight company. Speak in a crisp, slightly Victorian voice.
+When metrics.factory is present, this is a factory logistics game, not a passenger game. Delivered means freight crates;
+stranded means missed contract units; waitingNow means stored crates; ridersPerTrack means crates per track unit.
+Players place collection hubs within range of coal, iron and timber deposits, then connect rail lines to pre-spawned companies.
+Foundries consume 2 iron + 1 coal to produce 2 steel; sawmills consume 2 timber to produce 2 planks;
+machine works consume 2 steel + 1 plank to produce machinery; exporters buy machinery and planks.
+Diagnose supply-chain starvation, freight capacity, company coverage, production, timed contracts and routing bottlenecks.
+Trains do not require fuel, crew shifts or repairs in factory mode. Never mention passenger shapes, crowds or rider abandonment.
+For legacy metrics, diagnose headways, redundancy, coverage and transfers.
 Cite specific numbers. Be concrete about what to build next. Keep each note under 35 words.
 JSON shape: {"headline": string (max 12 words), "notes": string[] (2-4 items), "concept": {"title": string, "body": string (max 45 words)}}`;
 
 export async function critiqueNetwork(m: NetworkMetrics, final: boolean): Promise<EngineerFeedback> {
   const raw = await askJson<Partial<EngineerFeedback>>(SYSTEM, JSON.stringify({ stage: final ? "final report" : `end of week ${m.week}`, metrics: m }));
-  const notes = Array.isArray(raw?.notes) ? raw!.notes.filter((n): n is string => typeof n === "string").slice(0, 4) : [];
+  const notes = Array.isArray(raw?.notes) ? raw.notes.filter((n): n is string => typeof n === "string").slice(0, 4) : [];
   if (!raw || typeof raw.headline !== "string" || !notes.length) return fallbackFeedback(m);
   const concept = raw.concept && typeof raw.concept.title === "string" && typeof raw.concept.body === "string"
     ? { title: raw.concept.title.slice(0, 60), body: raw.concept.body.slice(0, 300) } : undefined;

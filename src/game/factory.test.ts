@@ -1,0 +1,21 @@
+import { describe,it,expect } from "vitest";
+import { FactoryGame } from "./factory";
+import { charter } from "@/test/fixtures";
+import { CONFIG } from "./config";
+import { scoreBreakdown } from "./scoring";
+const make=()=>new FactoryGame(charter(),42);
+const advance=(g:FactoryGame,seconds:number)=>{for(let t=0;t<seconds;t+=.05){if(g.phase==="picking")g.pickOffer(0);g.step(.05);}};
+describe("factory logistics",()=>{
+  it.each(["setauket","manhattan","nassau"])("pre-spawns all companies and each material on %s",slug=>{const g=new FactoryGame(charter(slug),42);expect(g.companies.length).toBe(g.charter.districts.length);for(const kind of ["coal","iron","timber"])expect(g.resources.filter(r=>r.kind===kind)).toHaveLength(3);});
+  it("seeded resources are reproducible",()=>{expect(make().resources).toEqual(make().resources);});
+  it("collects resources only from a matching deposit in range",()=>{const g=make(),r=g.resources.find(r=>r.kind==="timber");if(!r)throw Error("missing timber");expect(g.placeHub("timber",r.pos)).toBeNull();const hub=g.hubs[0];if(!hub)throw Error("missing hub");g.step(CONFIG.factory.collectionSeconds);expect(hub.stock.timber).toBe(1);expect(r.remaining).toBe(799);});
+  it("does not collect deposits beyond collection range",()=>{const g=make(),r=g.resources[0];if(!r)throw Error("missing deposit");const pos=g.terrain.nearestLand([g.terrain.bounds.x0+20,g.terrain.bounds.y0+20]);expect(g.planHub(r.kind,pos)).not.toBeNull();});
+  it("pre-spawned ironworks convert iron and coal into steel",()=>{const g=make(),s=g.companies.find(s=>s.companyKind==="foundry");if(!s)throw Error("missing foundry");s.stock.iron=2;s.stock.coal=1;g.step(5);expect(s.stock.steel).toBe(2);expect(s.stock.iron).toBe(0);expect(s.stock.coal).toBe(0);});
+  it("companies have continuous production without a contract",()=>{const g=make(),s=g.companies.find(s=>s.companyKind==="sawmill");if(!s)throw Error("missing sawmill");g.contracts=[];s.stock.timber=4;g.step(5);g.step(5);expect(s.stock.planks).toBe(4);});
+  it("missed timed requests incur a penalty",()=>{const g=make();const credits=g.credits;g.step(101);expect(g.contracts[0]?.status).toBe("missed");expect(g.contractsMissed).toBe(1);expect(g.credits).toBe(credits-60+CONFIG.factory.weeklyCredits);});
+  it("trains deliver collected timber to a company and produce planks",()=>{const g=make(),r=g.resources.find(r=>r.kind==="timber");if(!r)throw Error("missing timber");g.placeHub("timber",r.pos);const h=g.hubs[0],s=g.companies.find(s=>s.companyKind==="sawmill");if(!h||!s)throw Error("missing facilities");g.inv.track=10000;g.inv.tunnels=30;g.inv.bridges=30;expect(g.extend(0,h.index).ok).toBe(true);expect(g.extend(0,s.index).ok).toBe(true);advance(g,50);expect(g.delivered).toBeGreaterThan(0);expect(s.produced).toBeGreaterThan(0);});
+  it("a single freight line never achieves C",()=>{const m=make().metrics();expect(scoreBreakdown({...m,week:8,serviceRate:1,coverage:1,resilience:1,ridersPerTrack:1,linesBuilt:1}).score).toBe(63);});
+  it("weekly upgrades pause and resume the simulation",()=>{const g=make();g.step(60);expect(g.phase).toBe("picking");expect(g.offers).toHaveLength(3);g.pickOffer(0);expect(g.phase).toBe("running");expect(g.week).toBe(2);});
+  it("collection facilities serve every matching deposit within range, not other materials",()=>{const g=make(),r=g.resources.find(r=>r.kind==="timber");if(!r)throw Error("missing timber");g.placeHub("timber",r.pos);const hub=g.hubs[0];if(!hub)throw Error("missing hub");for(const deposit of g.resources){const near=Math.hypot(deposit.pos[0]-hub.pos[0],deposit.pos[1]-hub.pos[1])<=85;expect(deposit.hub===hub.index).toBe(deposit.kind==="timber"&&near);}});
+  it("fulfilling a timed company order pays the contract bonus",()=>{const g=make(),r=g.resources.find(r=>r.kind==="timber"),c=g.contracts[0];if(!r||!c)throw Error("missing contract or deposit");g.placeHub("timber",r.pos);const h=g.hubs[0];if(!h)throw Error("missing hub");g.inv.track=10000;g.inv.tunnels=30;g.inv.bridges=30;g.extend(0,h.index);g.extend(0,c.company);advance(g,45);expect(c.status).toBe("complete");expect(c.delivered).toBe(8);expect(g.contractsCompleted).toBe(1);expect(g.revenue).toBeGreaterThanOrEqual(150);});
+});

@@ -1,5 +1,5 @@
 /** Small presentational primitives shared by game UI. */
-import type { ReactNode } from "react";
+import type { ReactNode, ButtonHTMLAttributes } from "react";
 
 export function Panel({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
@@ -22,16 +22,14 @@ export function Stat({ label, value, tone }: { label: string; value: ReactNode; 
   );
 }
 
-export function Btn({ children, onClick, variant = "ghost", disabled, title, className = "" }: {
-  children: ReactNode; onClick?: () => void; variant?: "brass" | "ghost" | "danger"; disabled?: boolean; title?: string; className?: string;
-}) {
+export function Btn({ children, variant = "ghost", className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "brass" | "ghost" | "danger" }) {
   const v = variant === "brass" ? "btn-brass" : variant === "danger" ? "btn-danger" : "btn-ghost";
-  return <button type="button" title={title} disabled={disabled} onClick={onClick} className={`${v} ${className}`}>{children}</button>;
+  return <button type="button" {...props} className={`${v} ${className}`}>{children}</button>;
 }
 
 export function Modal({ children, wide }: { children: ReactNode; wide?: boolean }) {
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/75 p-4 backdrop-blur-[2px]">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-20 flex items-center justify-center bg-background/75 p-4 backdrop-blur-[2px]">
       <div className={`brass-frame max-h-full w-full overflow-y-auto bg-card p-6 ${wide ? "max-w-3xl" : "max-w-xl"}`}>{children}</div>
     </div>
   );

@@ -1,20 +1,3 @@
-import { CONCEPTS } from "@/shared/concepts";
+import { RECIPES, GOODS, type Commodity } from "@/shared/factory";
 import { Btn, Modal } from "./ui";
-
-export function Primer({ onClose }: { onClose: () => void }) {
-  return (
-    <Modal wide>
-      <p className="label-caps text-xs text-brass">Engineering primer</p>
-      <h2 className="font-display text-2xl">Principles of the iron road</h2>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {Object.values(CONCEPTS).map((c) => (
-          <div key={c.title} className="border-l-2 border-brass pl-3">
-            <p className="font-display text-lg">{c.title}</p>
-            <p className="text-sm text-muted-foreground">{c.body}</p>
-          </div>
-        ))}
-      </div>
-      <Btn variant="brass" className="mt-5 w-full" onClick={onClose}>Back to the survey</Btn>
-    </Modal>
-  );
-}
+export function Primer({onClose}:{onClose:()=>void}) {return <Modal wide><p className="label-caps text-xs text-brass">Industrial ledger</p><h2 className="font-display text-2xl">Production chains</h2><div className="mt-5 grid gap-4 sm:grid-cols-2">{Object.values(RECIPES).map(r=><div key={r.label} className="border-l-2 border-brass pl-3"><h3 className="font-display text-lg text-brass">{r.label}</h3><p>{Object.entries(r.inputs).map(([k,n])=>`${n} ${GOODS[k as Commodity].label}`).join(" + ")} → {r.output?`${r.quantity} ${GOODS[r.output].label}`:"Exports"}</p></div>)}</div><Btn variant="brass" className="mt-6 w-full" onClick={onClose}>Back to the works</Btn></Modal>;}
