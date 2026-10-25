@@ -27,8 +27,12 @@ the existing rule-based feedback. Keys stay server-side.
 Run `npm test` for regressions and `npm run build` for production. Standard Vite
 plugins build the client into `dist/client` and the Cloudflare-compatible server
 into `dist/server`. Configure `GEMINI_API_KEY` as a server secret on the deployment
-host only if AI reports are wanted. The Nitro preset in `vite.config.ts` can be
-changed for another supported hosting target; no platform account is required.
+host only if AI reports are wanted; no platform account is required.
+
+Deploying to Vercel works out of the box: the build detects Vercel's environment
+and emits the Build Output API under `.vercel/output` (serverless Node function
+plus static assets) instead of the Cloudflare build. No configuration change is
+needed on the Vercel side; a plain `npm run build` keeps targeting Cloudflare.
 
 ## Built with
 
