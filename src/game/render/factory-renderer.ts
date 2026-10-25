@@ -8,13 +8,17 @@ import { PALETTE as P } from './palette';
 import { ICON_PATHS } from './icon-paths';
 import { BUILDING_SPRITES } from './building-sprites';
 import { ISO_INV, UP } from './iso';
+import { LINE_COLOR_TOKENS, lineColorIndex } from '@/shared/line-colors';
 export interface FactoryOverlay { selectedLine:number|null;hover:Pt|null;placement:RawMaterial|"transfer"|null;selectedNode:number|null;tubeFrom:number|null;dragFrom?:number|null;draftPath?:Pt[];tutorialTarget?:number|null;tutorialSource?:number|null;selectedTrack?:{line:number;segment:number}|null }
-const colors=[P.danger,P.resource.repair,P.waterLine,P.brass,P.resource.barracks];
+
 const F=CONFIG.factory;
 export class FactoryRenderer {
  private terrain:HTMLCanvasElement;
+ private colors:string[];
+ private lineColor(id:number) { const rail=this.game.railLines().findIndex(l=>l.id===id);return this.colors[lineColorIndex(rail<0?id:rail)]??P.ink; }
  private sprites:Record<string,HTMLImageElement> = {};
  constructor(private ctx:CanvasRenderingContext2D,private game:FactoryGame,dpr:number){
+   this.colors=LINE_COLOR_TOKENS.map(token=>getComputedStyle(document.documentElement).getPropertyValue(token).trim());
    for(const [kind,url] of Object.entries(BUILDING_SPRITES)){const image=new Image();image.src=url;this.sprites[kind]=image;}
   this.terrain=document.createElement('canvas');const S=.5;this.terrain.width=F.worldWidth*S;this.terrain.height=F.worldHeight*S;
   const c=this.terrain.getContext('2d');if(!c)return;c.scale(S,S);const css=(v:string)=>getComputedStyle(document.documentElement).getPropertyValue(v.slice(4,-1)).trim();
@@ -25,8 +29,8 @@ export class FactoryRenderer {
   // Hills are extruded upward in screen space so the 2.5D view reads as raised ground.
   const hills=game.world.tiles.filter(t=>t.biome==='hills');
   for(const tile of hills){ring(tile.ring);c.fillStyle=P.hillShadow;c.fill();}
-  for(let layer=1;layer<=4;layer++)for(const tile of hills){ring(tile.ring,UP[0]*layer*5,UP[1]*layer*5);c.fillStyle=layer===4?css(P.biomes.hills):P.hillSide;c.fill();}
-  for(const tile of hills){ring(tile.ring,UP[0]*20,UP[1]*20);c.strokeStyle=P.hillRim;c.lineWidth=3;c.stroke();}
+  for(let layer=1;layer<=4;layer++)for(const tile of hills){ring(tile.ring,UP[0]*layer*10,UP[1]*layer*10);c.fillStyle=layer===4?css(P.biomes.hills):P.hillSide;c.fill();}
+  for(const tile of hills){ring(tile.ring,UP[0]*40,UP[1]*40);c.strokeStyle=P.hillRim;c.lineWidth=3;c.stroke();}
   // Upright tree billboards on forest ground.
   let n=0;for(let y=30;y<F.worldHeight;y+=40)for(let x=30;x<F.worldWidth;x+=40){n++;const jx=x+((n*73)%31)-15,jy=y+((n*47)%29)-14;if(!game.world.isForest(jx,jy)||game.world.isWater(jx,jy)||game.world.isMountain(jx,jy))continue;c.save();c.translate(jx,jy);c.transform(...ISO_INV);c.fillStyle=P.shadow;c.beginPath();c.ellipse(0,0,10,4,0,0,Math.PI*2);c.fill();c.fillStyle=P.treeDark;c.beginPath();c.moveTo(0,-30);c.lineTo(-10,-4);c.lineTo(10,-4);c.closePath();c.fill();c.fillStyle=P.treeLight;c.beginPath();c.moveTo(0,-30);c.lineTo(-10,-4);c.lineTo(0,-4);c.closePath();c.fill();c.restore();}
  }
@@ -38,11 +42,11 @@ export class FactoryRenderer {
   for(const r of g.resources){if(r.forest)continue;c.save();c.globalAlpha=r.remaining>0?1:.35;c.fillStyle=getComputedStyle(document.documentElement).getPropertyValue(P.deposits[r.kind].slice(4,-1)).trim();c.beginPath();for(let i=0;i<=24;i++){const a=i/24*Math.PI*2,radius=60+9*Math.sin(a*3+r.id)+7*Math.cos(a*5+r.id);const x=r.pos[0]+Math.cos(a)*radius,y=r.pos[1]+Math.sin(a)*radius;i?c.lineTo(x,y):c.moveTo(x,y);}c.closePath();c.fill();c.restore();}
   const fr=g.frontier;c.save();c.beginPath();c.rect(0,0,F.worldWidth,F.worldHeight);c.arc(fr.center[0],fr.center[1],fr.radius,0,Math.PI*2,true);c.fillStyle=P.fog;c.fill('evenodd');c.beginPath();c.arc(fr.center[0],fr.center[1],fr.radius,0,Math.PI*2);c.setLineDash([18,12]);c.strokeStyle=P.frontier;c.lineWidth=4;c.stroke();c.restore();
   if(o.placement||o.dragFrom!==null&&o.dragFrom!==undefined){c.strokeStyle=P.grid;c.lineWidth=1.4;c.beginPath();for(let x=0;x<F.worldWidth;x+=F.grid){c.moveTo(x,0);c.lineTo(x,F.worldHeight);}for(let y=0;y<F.worldHeight;y+=F.grid){c.moveTo(0,y);c.lineTo(F.worldWidth,y);}c.stroke();}
-  for(const l of g.lines){c.save();c.lineJoin='round';c.lineCap='round';for(const [segIndex,seg] of l.segments.entries()){const a=g.stations[seg.a],b=g.stations[seg.b];if(!a||!b)continue;const path=seg.path??gridRoute(a.pos,b.pos,l.id);if(o.selectedTrack?.line===l.id&&o.selectedTrack.segment===segIndex){this.path(path);c.strokeStyle=P.brass;c.lineWidth=16;c.stroke();}this.path(path);c.strokeStyle=P.station;c.lineWidth=o.selectedLine===l.id?11:8;c.stroke();this.path(path);c.strokeStyle=colors[l.id%5]??P.ink;c.lineWidth=o.selectedLine===l.id?5:4;if(l.type==='tube'||l.type==='boat'||seg.crossings.includes('tunnel'))c.setLineDash([5,5]);c.stroke();c.setLineDash([]);if(l.type==='boat'&&seg.waterPath){for(const dock of [seg.waterPath[0],seg.waterPath.at(-1)]){if(!dock)continue;c.fillStyle=P.station;c.strokeStyle=P.ink;c.lineWidth=2;c.beginPath();c.roundRect(dock[0]-12,dock[1]-8,24,16,2);c.fill();c.stroke();}}}c.restore();}
+  for(const l of g.lines){c.save();c.lineJoin='round';c.lineCap='round';for(const [segIndex,seg] of l.segments.entries()){const a=g.stations[seg.a],b=g.stations[seg.b];if(!a||!b)continue;const path=seg.path??gridRoute(a.pos,b.pos,l.id);if(o.selectedTrack?.line===l.id&&o.selectedTrack.segment===segIndex){this.path(path);c.strokeStyle=P.brass;c.lineWidth=16;c.stroke();}this.path(path);c.strokeStyle=P.station;c.lineWidth=o.selectedLine===l.id?11:8;c.stroke();this.path(path);c.strokeStyle=this.lineColor(l.id);c.lineWidth=o.selectedLine===l.id?5:4;if(l.type==='tube'||l.type==='boat'||seg.crossings.includes('tunnel'))c.setLineDash([5,5]);c.stroke();c.setLineDash([]);if(l.type==='boat'&&seg.waterPath){for(const dock of [seg.waterPath[0],seg.waterPath.at(-1)]){if(!dock)continue;c.fillStyle=P.station;c.strokeStyle=P.ink;c.lineWidth=2;c.beginPath();c.roundRect(dock[0]-12,dock[1]-8,24,16,2);c.fill();c.stroke();}}}c.restore();}
   if(o.placement&&o.hover){const p=snapPoint(o.hover),error=g.planHub(o.placement,p);c.save();c.fillStyle=error?P.danger:P.output;c.globalAlpha=.35;c.fillRect(p[0]-F.buildingHalfWidth,p[1]-F.buildingHalfWidth,F.buildingHalfWidth*2,F.buildingHalfWidth*2);c.globalAlpha=1;c.strokeStyle=error?P.danger:P.output;c.lineWidth=5;c.strokeRect(p[0]-F.buildingHalfWidth,p[1]-F.buildingHalfWidth,F.buildingHalfWidth*2,F.buildingHalfWidth*2);if(o.placement!=='transfer'){c.setLineDash([4,4]);c.beginPath();c.arc(...p,F.collectionRadius,0,Math.PI*2);c.stroke();}c.restore();this.building(p,o.placement);}
-  if(o.draftPath?.length){c.save();c.strokeStyle=colors[(o.selectedLine??0)%5]??P.ink;c.lineWidth=4;this.path(o.draftPath);c.stroke();c.restore();}
+  if(o.draftPath?.length){c.save();c.strokeStyle=this.lineColor(o.selectedLine??0);c.lineWidth=4;this.path(o.draftPath);c.stroke();c.restore();}
   for(const s of g.stations)this.node(s,o);
-  for(const l of g.lines)for(const t of l.trains){const p=g.trainPos(l,t),col=colors[l.id%5]??P.ink,len=18+l.carriages*4,shape=(dx:number,dy:number)=>{c.save();c.translate(p.x+dx,p.y+dy);c.rotate(p.ang);c.beginPath();if(l.type==='boat'){c.moveTo(-12,-7);c.lineTo(12,-7);c.lineTo(16,0);c.lineTo(12,7);c.lineTo(-12,7);c.closePath();}else c.roundRect(-9,-5,len,10,3);c.restore();};
+  for(const l of g.lines)for(const t of l.trains){const p=g.trainPos(l,t),col=this.lineColor(l.id),len=18+l.carriages*4,shape=(dx:number,dy:number)=>{c.save();c.translate(p.x+dx,p.y+dy);c.rotate(p.ang);c.beginPath();if(l.type==='boat'){c.moveTo(-12,-7);c.lineTo(12,-7);c.lineTo(16,0);c.lineTo(12,7);c.lineTo(-12,7);c.closePath();}else c.roundRect(-9,-5,len,10,3);c.restore();};
    shape(-UP[0]*2,-UP[1]*2);c.fillStyle=P.shadow;c.fill();
    for(let h=1;h<=7;h++){shape(UP[0]*h,UP[1]*h);c.fillStyle=h===7?col:P.trainSide;c.fill();}
    shape(UP[0]*7,UP[1]*7);c.strokeStyle=P.station;c.lineWidth=1.5;c.stroke();}

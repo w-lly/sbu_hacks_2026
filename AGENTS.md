@@ -26,12 +26,16 @@
 - iso.ts owns 2.5D matrices; camera applies ISO, picking inverts both, billboards use ISO_INV. Canvas navigation uses d3-zoom. Why: rendering and input align.
 - HUD uses .hud tokens, left-sidebar orders toggle and permanent bottom inventory; route actions share the top bar. Why: compact readable controls.
 - Drag connections choose the shortest reachable free-port pair around shared footprints; rendering consumes stored paths. Why: no squiggles or collisions.
-- useGameSession owns tutorial progress and map target projection; tutorial-steps defines the walkthrough and GuidedTutorial renders control highlights and drag arrows. Why: guidance tracks real supply-chain actions without duplicating simulation state.
-- Factory lines are connected graphs; trains follow explicit segment endpoints and cycle incident edges. Why: branches preserve physical movement.
+- useGameSession owns tutorial progress and map target projection; tutorial-steps defines the walkthrough and GuidedTutorial highlights controls. Why: guidance tracks real actions without duplicate state.
+- Factory rail lines extend only at directed ends; trains follow stored segment endpoints in either direction. Why: connections cannot split a line or teleport trains.
 - Buildings rotate by quarter-turn through portPosition; connected buildings require disconnection before rotation. Why: stored paths remain valid.
 - Device-local campaign progression uses shared/levels.ts and full-run completion checks, including direct play access. Why: accounts are not required.
 - building-sprites.ts maps replaceable transparent PNGs to building kinds. Why: art changes do not affect geometry.
 - Crossing inventory starts empty and unlocks weekly. Ordinary rails always avoid water and mountains; crossing tools pass explicit intent. Boats use water-only graph edges with collision-safe shore approaches. Why: supplies never implicitly enable crossings.
-- FactoryGame owns full seeded simulation checkpoints and refundable leaf removal; useGameSession dispatches keyboard actions. Why: repeated undo keeps economy and orders consistent.
+- FactoryGame owns seeded checkpoints, cash-spending undo metadata and cumulative refund losses; useGameSession confirms paid undos and dispatches keys. Why: repeated undo cannot restore forfeited credits.
+- Train and carriage changes return unused supplies and cargo to the simulation; purchase prices live in config.ts. Why: UI controls do not duplicate economic rules.
+- Weekly advice is concise and derived from live factory results; full reports retain AI feedback. Why: upgrade choices remain readable even when AI replies are verbose.
 - Orders reconcile unallocated stock before consumption and after delivery. Why: crates count without reuse.
 - Transfer stations share graph storage with symmetric input/output ports; weekly line upgrades append stable IDs. Why: existing freight routing handles transfers.
+- Gift balances and cumulative undo forfeitures live in FactoryGame; placement costs read those balances. Why: gifts are free for matching uses and repeated undo cannot restore them.
+- Route controls and canvas resolve the shared ordered color-token bank by rail-line order. Why: new lines remain distinct even when non-rail connections occupy IDs.

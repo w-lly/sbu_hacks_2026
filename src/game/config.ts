@@ -48,6 +48,8 @@ const RAW = {
     startingTrack: 1000000,
     startingLocomotives: 5,
     startingHubs: 6,
+    locomotiveCost: 200,
+    undoRefundRate: 0.5,
     hubCost: 100,
     transferCost: 200,
     transferPorts: 3,

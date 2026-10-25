@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Charter, EngineerFeedback } from "@/shared/types";
 import type { RawMaterial } from "@/shared/factory";
-import { FactoryGame } from "@/game/factory";
+import { FactoryGame, type GiftKind } from "@/game/factory";
 import { FactoryRenderer } from "@/game/render/factory-renderer";
 import { CONFIG } from "@/game/config";
 import { SoundBoard } from "@/game/audio/sound";
@@ -22,6 +22,8 @@ export function useGameSession(charter: Charter, runKey: number, seed: number) {
   const [selected,setSelected]=useState<number|null>(null),[toasts,setToasts]=useState<Toast[]>([]),[message,setMessage]=useState(""),[weekly,setWeekly]=useState<{week:number;feedback:EngineerFeedback|null}|null>(null);
   const [tutorial,setTutorial]=useState<number|null>(0);
   const tutorialForest=useRef<Pt|null>(null);
+  const [undoWarning,setUndoWarning]=useState<{spent:number;refund:number;gifts?:{kind:GiftKind;quantity:number}[]}|null>(null);
+  const undoPending=useRef(false);
   const [selectedTrack,setSelectedTrack]=useState<{line:number;segment:number}|null>(null);
   const [tutorialSource,setTutorialSource]=useState<number|null>(null);
   const cameraRef=useRef<ZoomTransform>(zoomIdentity),zoomRef=useRef<ZoomBehavior<HTMLCanvasElement,unknown>|null>(null);
@@ -53,7 +55,7 @@ export function useGameSession(charter: Charter, runKey: number, seed: number) {
       if(e.type==="contract"&&e.title)toast(e.title);
       if(e.type==="week"){const metrics=game.metrics(),week=e.week??game.week-1;setWeekly({week,feedback:fallbackFeedback(metrics)});getEngineerFeedback({data:{metrics,final:false}}).catch(()=>fallbackFeedback(metrics)).then(feedback=>{if(gameRef.current===game)setWeekly(w=>w&&w.week===week?{...w,feedback}:w);});}
     });
-    let raf=0,last=performance.now(),elapsed=0;const loop=(now:number)=>{const dt=Math.min(.05,(now-last)/1000);last=now;const state=stateRef.current;if(!state.paused&&tutorialAllowsSimulation(tutorialRef.current))for(let i=0;i<state.speed*CONFIG.factory.baseSpeed;i++)game.step(dt);
+    let raf=0,last=performance.now(),elapsed=0;const loop=(now:number)=>{const dt=Math.min(.05,(now-last)/1000);last=now;const state=stateRef.current;if(!state.paused&&!undoPending.current&&tutorialAllowsSimulation(tutorialRef.current))for(let i=0;i<state.speed*CONFIG.factory.baseSpeed;i++)game.step(dt);
       const camera=cameraRef.current;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.setTransform(dpr*camera.k,0,0,dpr*camera.k,dpr*camera.x,dpr*camera.y);ctx.transform(...ISO);
       renderer.draw({selectedLine:state.tool.kind==="rail"||state.tool.kind==="crossing"?state.tool.line:null,hover:hoverRef.current,placement:state.tool.kind==="hub"?state.tool.material:null,selectedNode:state.selected,tubeFrom:state.tool.kind==="tube"?state.tool.from:null,dragFrom:dragRef.current,draftPath:draftRef.current,selectedTrack:overlayRef.current.selectedTrack, tutorialSource:overlayRef.current.tutorialSource, tutorialTarget:tutorialRef.current!==null&&tutorialRef.current>=TUTORIAL.place&&tutorialRef.current<=TUTORIAL.produced?game.companies.find(c=>c.companyKind==="sawmill")?.index??null:null});
       if(tutorialRef.current===TUTORIAL.delivery&&game.companies.some(c=>c.companyKind==="sawmill"&&c.produced>0))setTutorial(TUTORIAL.produced);
@@ -64,9 +66,11 @@ export function useGameSession(charter: Charter, runKey: number, seed: number) {
   const cancelTrack=()=>{dragRef.current=null;draftRef.current=[];hoverRef.current=null;};
   const escape=()=>{cancelTrack();setSelected(null);setSelectedTrack(null);setTool({kind:"inspect"});stateRef.current={...stateRef.current,tool:{kind:"inspect"},selected:null};overlayRef.current={...overlayRef.current,selectedTrack:null};suppressClick.current=false;};
   const act=(fn:(g:FactoryGame)=>string|null|void,ok?:string)=>{const g=gameRef.current;if(!g)return;const before=g.checkpoint(),error=fn(g);if(error){setMessage(error);soundRef.current.error();escape();}else{g.rememberAction(before);if(ok)setMessage(ok);}setTick(t=>t+1);};
-  const undo=()=>{const g=gameRef.current;if(!g)return;const error=g.undoAction();escape();setWeekly(null);setMessage(error??"Action undone.");setTick(t=>t+1);};
+  const confirmUndo=()=>{undoPending.current=false;setUndoWarning(null);const g=gameRef.current;if(!g)return;const error=g.undoAction();escape();setWeekly(null);setMessage(error??"Action undone.");setTick(t=>t+1);};
+  const cancelUndo=()=>{undoPending.current=false;setUndoWarning(null);};
+  const undo=()=>{const g=gameRef.current;if(!g||undoPending.current)return;const refund=g.undoRefund,gifts=g.undoGiftWarning;if(refund||gifts){undoPending.current=true;setUndoWarning({...refund??{spent:0,refund:0},...(gifts?{gifts}:{})});}else confirmUndo();};
   const deleteTrack=()=>{const target=overlayRef.current.selectedTrack;if(!target){setMessage("Select an end track first.");return;}act(g=>g.removeSegment(target.line,target.segment));escape();};
-  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(e.key==='Escape'){e.preventDefault();escape();setMessage("");}else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();}else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteTrack();}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[]);
+  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement)return;if(e.key==='Escape'){e.preventDefault();cancelUndo();escape();setMessage("");}else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();}else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteTrack();}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[]);
   const place=(material:RawMaterial | "transfer",p:Pt)=>{act(g=>{const error=g.placeHub(material,snapPoint(p));if(!error){setTool({kind:"inspect"});if(tutorialRef.current===TUTORIAL.place&&material==="timber"){setTutorialSource(g.hubs.at(-1)?.index??null);setTutorial(TUTORIAL.route);}}return error;},material==="transfer"?"Transfer station placed.":"Collector placed.");};
   const facilityAt=(g:FactoryGame,p:Pt,side:"input"|"output")=>{const idx=g.stationAt(...p);return idx>=0?idx:g.portAt(p,side,CONFIG.factory.portSnapRadius*1.6)?.index??-1;};
   const onPointerDown=(e:React.PointerEvent<HTMLCanvasElement>)=>{const g=gameRef.current,t=stateRef.current.tool;if(!g||t.kind==="hub"||e.button!==0||e.altKey)return;soundRef.current.unlock();const p=point(e.currentTarget,e.clientX,e.clientY);if(g.stationAt(...p)<0&&g.segmentAt(p))return;const idx=facilityAt(g,p,"output");if(idx<0)return;
@@ -117,5 +121,5 @@ export function useGameSession(charter: Charter, runKey: number, seed: number) {
     const k=Math.min(.7,(bounds.width-140)/Math.max(180,Math.abs(worldA[0]-worldB[0])+120));
     select(canvas).call(behavior.transform,zoomIdentity.translate(bounds.width*.5-center[0]*k,bounds.height*.32-center[1]*k).scale(k));
   },[tutorial,tutorialMapPoint]);
-  return {tutorialMapPoint,dismissMessage:()=>setMessage(""),focusFacility,undo,deleteTrack,escape,selectedTrack,tutorialSource,zoomBy,fitMap,zoomLevel,cancelTrack,tutorial,setTutorial,startTutorial,finishTutorial,onPointerDown,onPointerMove,onPointerUp,canvasRef,game:gameRef.current,tick,tool,setTool,paused,setPaused,speed,setSpeed,muted,setMuted,selected,setSelected,toasts,message,weekly,act,onClick,onDrop,onMove:(e:React.MouseEvent<HTMLCanvasElement>)=>{hoverRef.current=point(e.currentTarget,e.clientX,e.clientY);},onDragOver:(e:React.DragEvent<HTMLCanvasElement>)=>{e.preventDefault();e.dataTransfer.dropEffect="copy";hoverRef.current=point(e.currentTarget,e.clientX,e.clientY);},onLeave:()=>{hoverRef.current=null;},hoverRef};
+  return {undoWarning,confirmUndo,cancelUndo,tutorialMapPoint,dismissMessage:()=>setMessage(""),focusFacility,undo,deleteTrack,escape,selectedTrack,tutorialSource,zoomBy,fitMap,zoomLevel,cancelTrack,tutorial,setTutorial,startTutorial,finishTutorial,onPointerDown,onPointerMove,onPointerUp,canvasRef,game:gameRef.current,tick,tool,setTool,paused,setPaused,speed,setSpeed,muted,setMuted,selected,setSelected,toasts,message,weekly,act,onClick,onDrop,onMove:(e:React.MouseEvent<HTMLCanvasElement>)=>{hoverRef.current=point(e.currentTarget,e.clientX,e.clientY);},onDragOver:(e:React.DragEvent<HTMLCanvasElement>)=>{e.preventDefault();e.dataTransfer.dropEffect="copy";hoverRef.current=point(e.currentTarget,e.clientX,e.clientY);},onLeave:()=>{hoverRef.current=null;},hoverRef};
 }

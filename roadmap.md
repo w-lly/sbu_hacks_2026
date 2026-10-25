@@ -1,5 +1,20 @@
 # Roadmap
 
+- [x] Fit left panel to its tools and add an ordered 30-color line bank
+- [x] Match upgrade names/icons to game tools
+- [x] Make gift quantities free to use, with non-refundable undo warnings and tests
+- [x] Verify gifts and panel presentation live
+
+- [x] Ensure permanent panels have no collapse buttons or visible right scrollbar
+- [x] Make unused-line rings and selected-line add/subtract controls clearly visible
+- [x] Verify purchases and refund warnings live, endpoint rules in tests, and simple weekly/tutorial wording
+
+- [x] Unused/selected line signals, train and carriage counts and add/subtract controls
+- [x] Train purchases and confirmed 50% cash refunds on transactional undo
+- [x] Connections at both line ends without branches
+- [x] Permanent sidebars and simpler tutorial/weekly wording
+- [x] Regression tests and live interaction verification
+
 - [x] In-depth arrow-guided tutorial explaining every game control
 - [x] Compact translucent upper-right orders, toggled from the left
 - [x] Verify tutorial flow and orders presentation
@@ -60,3 +75,8 @@
 - [x] Blueprint Report with greedy baseline comparison
 - [x] Steam puffs, sound effects, concept primer
 - [x] Backend/frontend split documented in AGENTS.md
+
+## 2026-10-25 polish
+- [x] Tutorial highlights items only (no circles/arrows); basic supply-chain flow first (collector → place → route → drag → delivery)
+- [x] Mountains render twice as tall
+- [x] Optional GEMINI_API_KEY for the Chief Engineer report, with automatic fallback to Lovable AI (.env.example added)

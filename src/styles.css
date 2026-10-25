@@ -78,6 +78,31 @@
   --route-2: oklch(.53 .115 163);
   --route-3: oklch(.76 .13 90);
   --route-4: oklch(.57 .14 330);
+  --route-5: oklch(.72 .16 55);
+  --route-6: oklch(.74 .12 200);
+  --route-7: oklch(.67 .19 300);
+  --route-8: oklch(.82 .16 115);
+  --route-9: oklch(.78 .12 15);
+  --route-10: oklch(.59 .13 70);
+  --route-11: oklch(.79 .12 230);
+  --route-12: oklch(.73 .16 145);
+  --route-13: oklch(.53 .15 10);
+  --route-14: oklch(.81 .09 310);
+  --route-15: oklch(.58 .09 110);
+  --route-16: oklch(.65 .13 210);
+  --route-17: oklch(.85 .12 70);
+  --route-18: oklch(.48 .13 280);
+  --route-19: oklch(.81 .12 170);
+  --route-20: oklch(.63 .18 355);
+  --route-21: oklch(.58 .12 45);
+  --route-22: oklch(.74 .16 275);
+  --route-23: oklch(.69 .10 95);
+  --route-24: oklch(.88 .07 20);
+  --route-25: oklch(.49 .08 190);
+  --route-26: oklch(.76 .16 35);
+  --route-27: oklch(.61 .13 130);
+  --route-28: oklch(.84 .10 260);
+  --route-29: oklch(.68 .12 320);
   --port-input: var(--route-1);
   --port-output: var(--route-2);
   --hud-bg: oklch(.22 .015 165 / .82);
@@ -174,6 +199,13 @@
 .factory-screen .route-swatch { width:38px; height:38px; padding:0; border:0; position:relative; }
 .route-swatch>span { width:23px; height:23px; border-radius:50%; background:var(--line-color); }
 .route-swatch[aria-pressed=true] { outline:2px solid var(--line-color); outline-offset:2px; }
+.factory-screen .route-swatch.route-unused::after { content:""; position:absolute; inset:0; border:2px solid var(--line-color); border-radius:50%; pointer-events:none; }
+.factory-screen .route-swatch[aria-pressed=true] { background:var(--hud-raise); box-shadow:0 0 12px color-mix(in srgb,var(--line-color) 45%,transparent); }
+.line-stock-controls { display:flex; align-items:center; gap:3px; border-right:1px solid var(--hud-border); padding-right:6px; }
+.line-stock-count { display:flex; flex-direction:column; align-items:center; justify-content:center; width:26px; height:40px; gap:3px; }
+.line-stock-count small { font-size:10px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; }
+.map-header .map-actions .line-stock-controls .btn-ghost { min-width:28px; width:28px; height:28px; padding:3px; border:1px solid var(--hud-border); background:var(--hud-raise); }
+.buy-train small { font-size:10px; }
 .route-swatch small { position:absolute; color:var(--card); font-size:10px; }
 .route-0 { --line-color:var(--route-0); }.route-1 { --line-color:var(--route-1); }.route-2 { --line-color:var(--route-2); }.route-3 { --line-color:var(--route-3); }.route-4 { --line-color:var(--route-4); }
 .route-indicator { width:10px; height:10px; background:var(--line-color); border-radius:50%; }
@@ -270,10 +302,7 @@
 .collector-tools.hud,.route-tools.hud { padding:6px; gap:6px; border:1px solid var(--hud-border); border-radius:12px; }
 .collector-tools .btn-ghost,.collector-tools .btn-brass { width:40px; height:40px; }
 .factory-screen .route-swatch { width:34px; height:34px; }
-.drawer-toggle { opacity:.8; }
-.factory-screen .drawer-closed .drawer-toggle { width:38px; height:38px; opacity:1; }
 .map-footer.hud { left:12px; right:auto; bottom:12px; width:auto; max-width:calc(100% - 180px); padding:5px 10px; gap:16px; font-size:12px; color:var(--hud-fg); border:1px solid var(--hud-border); border-radius:12px; flex-wrap:wrap; }
-.map-footer.hud.drawer-closed { padding:4px; }
 .map-footer strong { font-size:14px; }
 .map-zoom.hud { right:12px; bottom:12px; border:1px solid var(--hud-border); border-radius:10px; padding:2px; }
 .route-edit.hud { bottom:64px; border-color:var(--hud-border); }
@@ -333,8 +362,14 @@
 .collector-tools.hud { top:100px; bottom:100px; transform:none; overflow-y:auto; justify-content:flex-start; }
 .collector-tools .btn-ghost,.collector-tools .btn-brass { min-height:48px; height:48px; flex-shrink:0; }
 .collector-tools .facility-cost { display:flex; align-items:center; justify-content:center; gap:2px; font-size:10px; color:inherit; }
-.route-tools.hud { top:100px; bottom:100px; transform:none; overflow-y:auto; }
+.route-tools.hud { top:100px; bottom:100px; transform:none; overflow-y:auto; scrollbar-width:none; }
+.route-tools.hud::-webkit-scrollbar { display:none; }
+.collector-tools.hud { scrollbar-width:none; }
+.collector-tools.hud::-webkit-scrollbar { display:none; }
 .route-tools.hud .btn-ghost { flex-shrink:0; }
+.factory-screen .route-tools .route-swatch { width:38px; height:38px; margin:2px; }
+.factory-screen .route-tools .route-swatch>span { width:22px; height:22px; }
+.factory-screen .route-tools .route-swatch[aria-pressed=true] { outline:2px solid var(--hud-fg); outline-offset:1px; }
 @media(max-width:700px) { .order-list.hud-orders { left:60px; right:auto; top:108px; width:230px; max-height:calc(100dvh - 220px); } .collector-tools.hud,.route-tools.hud { top:108px; bottom:116px; } }
 
 /* Concise translucent orders and an arrow-led, paced walkthrough. */
@@ -345,10 +380,7 @@
 .hud-orders .order-number { width:18px; height:18px; font-size:10px; }
 .hud-orders .factory-progress { height:3px; margin-top:1px; }
 .tutorial-directions { position:absolute; inset:0; width:100%; height:100%; z-index:5; pointer-events:none; overflow:visible; color:var(--hud-accent); }
-.tutorial-directions marker path { fill:var(--hud-accent); }
-.tutorial-pointer,.tutorial-drag-arrow { fill:none; stroke:var(--hud-accent); stroke-width:3; filter:drop-shadow(0 1px 2px var(--hud-solid)); }
-.tutorial-drag-arrow { stroke-width:4; stroke-dasharray:9 5; animation:tutorial-flow 1.2s linear infinite; }
-.tutorial-target { fill:none; stroke:var(--hud-accent); stroke-width:2; }
+.tutorial-target { fill:color-mix(in srgb, var(--hud-accent) 14%, transparent); stroke:var(--hud-accent); stroke-width:3; filter:drop-shadow(0 0 6px var(--hud-accent)); animation:tutorial-pulse 1.6s ease-in-out infinite; }
 .tutorial-guide.hud.tutorial-expanded { z-index:6; left:82px; bottom:76px; width:340px; max-width:calc(100% - 160px); max-height:calc(100dvh - 180px); overflow:auto; padding:12px 15px; background:var(--hud-solid); }
 .tutorial-heading,.tutorial-navigation { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .factory-screen .tutorial-heading .btn-ghost { width:24px; height:24px; min-width:24px; padding:2px; }
@@ -358,9 +390,38 @@
 .tutorial-navigation { margin-top:12px; }
 .tutorial-navigation .btn-brass { background:var(--hud-accent); border-color:var(--hud-accent); color:var(--map-backdrop); }
 .tutorial-guide.hud.tutorial-map-step { left:auto; right:82px; }
-@keyframes tutorial-flow { to { stroke-dashoffset:-28; } }
+@keyframes tutorial-pulse { 50% { stroke-opacity:.45; } }
 @media(max-width:700px) {
  .order-list.hud-orders { left:auto; right:56px; top:108px; width:200px; max-height:190px; }
  .tutorial-guide.hud.tutorial-expanded { left:56px; bottom:100px; width:340px; max-width:calc(100% - 112px); max-height:calc(100dvh - 215px); }
  .tutorial-guide.hud.tutorial-map-step { left:56px; right:auto; }
 }
+
+/* Fit the left tools to their contents rather than stretching to the footer. */
+.collector-tools.hud { top:100px; bottom:auto; height:max-content; max-height:calc(100dvh - 180px); }
+@media(max-width:700px) { .collector-tools.hud { top:108px; bottom:auto; max-height:calc(100dvh - 224px); } }
+.route-5 { --line-color:var(--route-5); }
+.route-6 { --line-color:var(--route-6); }
+.route-7 { --line-color:var(--route-7); }
+.route-8 { --line-color:var(--route-8); }
+.route-9 { --line-color:var(--route-9); }
+.route-10 { --line-color:var(--route-10); }
+.route-11 { --line-color:var(--route-11); }
+.route-12 { --line-color:var(--route-12); }
+.route-13 { --line-color:var(--route-13); }
+.route-14 { --line-color:var(--route-14); }
+.route-15 { --line-color:var(--route-15); }
+.route-16 { --line-color:var(--route-16); }
+.route-17 { --line-color:var(--route-17); }
+.route-18 { --line-color:var(--route-18); }
+.route-19 { --line-color:var(--route-19); }
+.route-20 { --line-color:var(--route-20); }
+.route-21 { --line-color:var(--route-21); }
+.route-22 { --line-color:var(--route-22); }
+.route-23 { --line-color:var(--route-23); }
+.route-24 { --line-color:var(--route-24); }
+.route-25 { --line-color:var(--route-25); }
+.route-26 { --line-color:var(--route-26); }
+.route-27 { --line-color:var(--route-27); }
+.route-28 { --line-color:var(--route-28); }
+.route-29 { --line-color:var(--route-29); }
