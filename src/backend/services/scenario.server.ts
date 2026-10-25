@@ -3,7 +3,7 @@ import type { Scenario } from "@/shared/types";
 import { askJson } from "./ai.server";
 import { findCharter, landUseDigest } from "./maps.server";
 
-const SYSTEM = `You are the scenario writer for "Brassworks Transit", a Gilded Age steampunk transit game on real maps.
+const SYSTEM = `You are the scenario writer for "Back On Track", a Gilded Age steampunk transit game on real maps.
 Given real districts and land use, rename each district as a steampunk structure (max 5 words), write one-sentence lore,
 choose demand weights (0.6-1.6) for commuter/student/shopper, and invent exactly 3 timed events at weeks 2, 4 and 6
 that cause a demand surge at a district (multiplier 2-4, duration 20-35 seconds).

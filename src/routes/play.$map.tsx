@@ -15,11 +15,11 @@ export const Route = createFileRoute("/play/$map")({
   },
   head: ({ loaderData }) => ({
     meta: [
-      { title: `${loaderData?.name ?? "Survey"} — Brassworks Transit` },
+      { title: `${loaderData?.name ?? "Survey"} — Back On Track` },
       { name: "description", content: `Build an industrial freight network in the generated world of ${loaderData?.name ?? "the city"}.` },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: `${loaderData?.name ?? "Survey"} — Brassworks Transit` },
+      { property: "og:title", content: `${loaderData?.name ?? "Survey"} — Back On Track` },
       { property: "og:description", content: "Collect resources, supply companies and fulfill industrial contracts." },
     ],
   }),

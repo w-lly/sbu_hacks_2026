@@ -4,11 +4,11 @@ import { RECIPES, GOODS, type Commodity } from "@/shared/factory";
 export const Route = createFileRoute("/how-it-works")({
   head: () => ({
     meta: [
-      { title: "How the Works Work — Brassworks Transit" },
+      { title: "How the Works Work — Back On Track" },
       { name: "description", content: "Factory logistics rules: collection hubs, freight railways, production chains and company contracts." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "How the Works Work — Brassworks Transit" },
+      { property: "og:title", content: "How the Works Work — Back On Track" },
       { property: "og:description", content: "Learn how to supply industrial companies on generated industrial worlds." },
     ],
   }),

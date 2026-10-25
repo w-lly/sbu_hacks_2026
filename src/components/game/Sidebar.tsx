@@ -11,7 +11,7 @@ export function Sidebar({game:g,name,tool,setTool,act,message,onPrimer,onEnd,sel
   const node=selected===null?null:g.stations[selected];
   return <aside className="brass-frame flex w-full shrink-0 flex-col gap-4 bg-card/70 p-4 lg:max-h-[calc(100vh-1.5rem)] lg:w-80 lg:overflow-y-auto">
     <div className="flex items-center justify-between"><Link to="/" className="label-caps text-xs text-muted-foreground">← Charters</Link><Btn onClick={onPrimer} title="Production recipes"><Factory size={16}/></Btn></div>
-    <div><p className="label-caps text-[10px] text-verdigris">Industrial charter</p><h1 className="font-display text-xl text-brass">{name}</h1><p className="text-sm italic text-muted-foreground">Brassworks · Supply & Steam</p></div>
+    <div><p className="label-caps text-[10px] text-verdigris">Industrial charter</p><h1 className="font-display text-xl text-brass">{name}</h1><p className="text-sm italic text-muted-foreground">Supply & Steam</p></div>
     <div><div className="flex justify-between"><span className="font-display">Week {g.week} / {CONFIG.week.total}</span><span className="label-caps text-xs text-muted-foreground">{Math.max(0,Math.ceil(CONFIG.week.seconds-g.weekTime))}s</span></div><progress className="factory-progress mt-1 w-full" value={g.weekTime} max={CONFIG.week.seconds}/></div>
     <div className="grid grid-cols-3 gap-1"><Stat label="Credits" value={g.credits}/><Stat label="Products" value={g.products}/><Stat label="Delivered" value={g.delivered}/></div>
     <Panel title="Collection facilities" aside={<span className="label-caps text-[10px] text-muted-foreground">{g.hubsAvailable} available · {CONFIG.factory.hubCost} cr</span>}>

@@ -9,11 +9,11 @@ import airship from '@/assets/charter-airship.png';
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Brassworks Transit — Choose Your Charter" },
+      { title: "Back On Track — Choose Your Charter" },
       { name: "description", content: "A factory rail-logistics game on seeded industrial worlds." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "Brassworks Transit" },
+      { property: "og:title", content: "Back On Track" },
       { property: "og:description", content: "Connect. Supply. Produce." },
     ],
   }),
@@ -37,8 +37,8 @@ function Index() {
       <div className="relative mx-auto grid max-w-6xl gap-12 px-8 py-16 lg:grid-cols-2 lg:items-center">
         <section>
           <p className="label-caps text-xs text-brass">Factory logistics</p>
-          <h1 className="mt-3 font-display text-4xl font-bold text-brass md:text-5xl">BRASSWORKS</h1>
-          <p className="font-display text-4xl  text-foreground">TRANSIT</p>
+          <h1 className="mt-3 font-display text-4xl font-bold text-brass md:text-5xl">BACK ON TRACK</h1>
+
           <div className="my-6 flex items-center gap-3 text-brass"><span className="h-px flex-1 bg-brass/50" />◆<span className="h-px flex-1 bg-brass/50" /></div>
           <p className="text-2xl italic">Connect. Supply. Produce.</p>
           <p className="mt-3 max-w-md text-lg text-muted-foreground">
