@@ -425,3 +425,8 @@
 .route-27 { --line-color:var(--route-27); }
 .route-28 { --line-color:var(--route-28); }
 .route-29 { --line-color:var(--route-29); }
+
+/* Free-gift labels stay small so they fit; tool icons never shrink. */
+.collector-tools .free-count { font-size:7px; line-height:1; letter-spacing:-0.2px; white-space:nowrap; }
+.collector-tools .facility-cost { overflow:visible; }
+.collector-tools .btn-ghost>svg:first-child,.collector-tools .btn-brass>svg:first-child { flex-shrink:0; }
