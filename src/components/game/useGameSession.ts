@@ -7,6 +7,9 @@ import { FactoryRenderer } from "@/game/render/factory-renderer";
 import { CONFIG } from "@/game/config";
 import { SoundBoard } from "@/game/audio/sound";
 import { getEngineerFeedback } from "@/backend/functions/engineer.functions";
+import { getDirectorPlan } from "@/backend/functions/director.functions";
+import { updateSettings, useSettings } from "./settings";
+import { narrate } from "./narrator";
 import { fallbackFeedback } from "@/shared/engineer-rules";
 import type { Pt } from "@/game/projection";
 import { ISO, fitCircle, fromIso, toIso } from "@/game/render/iso";
@@ -18,7 +21,8 @@ export type Tool = { kind: "rail"; line: number } | { kind: "hub"; material: Raw
 export interface Toast { id: number; title: string }
 export function useGameSession(charter: Charter, runKey: number, seed: number) {
   const canvasRef=useRef<HTMLCanvasElement>(null),gameRef=useRef<FactoryGame|null>(null),soundRef=useRef(new SoundBoard());
-  const [tick,setTick]=useState(0),[tool,setTool]=useState<Tool>({kind:"inspect"}),[paused,setPaused]=useState(false),[speed,setSpeed]=useState(1),[muted,setMuted]=useState(false);
+  const [tick,setTick]=useState(0),[tool,setTool]=useState<Tool>({kind:"inspect"}),[paused,setPaused]=useState(false),[speed,setSpeed]=useState(1);
+  const settings=useSettings(),muted=!settings.gameSound,setMuted=(m:boolean)=>updateSettings({gameSound:!m});
   const [selected,setSelected]=useState<number|null>(null),[toasts,setToasts]=useState<Toast[]>([]),[message,setMessage]=useState(""),[weekly,setWeekly]=useState<{week:number;feedback:EngineerFeedback|null}|null>(null);
   const [tutorial,setTutorial]=useState<number|null>(0);
   const tutorialForest=useRef<Pt|null>(null);
@@ -35,8 +39,9 @@ export function useGameSession(charter: Charter, runKey: number, seed: number) {
   const overlayRef=useRef({selectedTrack,tutorialSource});overlayRef.current={selectedTrack,tutorialSource};
   const hoverRef=useRef<Pt|null>(null),stateRef=useRef({tool,paused,speed,selected});stateRef.current={tool,paused,speed,selected};
   const timerRef=useRef<ReturnType<typeof setTimeout>[]>([]);
-  const toast=useCallback((title:string)=>{const id=Date.now();setToasts(ts=>[...ts.slice(-2),{id,title}]);timerRef.current.push(setTimeout(()=>setToasts(ts=>ts.filter(t=>t.id!==id)),5000));},[]);
-  useEffect(()=>{soundRef.current.muted=muted;},[muted]);
+  const toast=useCallback((title:string)=>{const id=Date.now();setToasts(ts=>[...ts.slice(-2),{id,title}]);narrate(title);timerRef.current.push(setTimeout(()=>setToasts(ts=>ts.filter(t=>t.id!==id)),5000));},[]);
+  useEffect(()=>{soundRef.current.muted=muted;soundRef.current.volume=settings.volume;},[muted,settings.volume]);
+  useEffect(()=>{if(message)narrate(message);},[message]);
   useEffect(()=>{
     const canvas=canvasRef.current;if(!canvas)return;const ctx=canvas.getContext("2d");if(!ctx)return;
     const game=new FactoryGame(charter,seed);gameRef.current=game;
@@ -57,11 +62,15 @@ export function useGameSession(charter: Charter, runKey: number, seed: number) {
       if(e.type==="contract"&&e.title)toast(e.title);
       if(e.type==="week"){const metrics=game.metrics(),week=e.week??game.week-1;setWeekly({week,feedback:fallbackFeedback(metrics)});getEngineerFeedback({data:{metrics,final:false}}).catch(()=>fallbackFeedback(metrics)).then(feedback=>{if(gameRef.current===game)setWeekly(w=>w&&w.week===week?{...w,feedback}:w);});}
     });
+    // Gemini director: plan the next upgrades/orders in the background before they are needed.
+    let planWeek=0,planInflight=false,orderKey=-1;
+    const requestPlan=()=>{if(planInflight)return;planInflight=true;getDirectorPlan({data:game.snapshot(charter.difficulty)}).then(plan=>{if(plan&&gameRef.current===game)game.applyPlan(plan);}).catch(()=>{}).finally(()=>{planInflight=false;});};
+    const prefetch=()=>{if(game.phase!=='running')return;if(game.weekTime>CONFIG.week.seconds-15&&planWeek!==game.week&&game.week<CONFIG.week.total){planWeek=game.week;requestPlan();}else if(!game.queuedOrders.length&&game.nextOrderIn<20&&orderKey!==game.contracts.length){orderKey=game.contracts.length;requestPlan();}};
     let raf=0,last=performance.now(),elapsed=0;const loop=(now:number)=>{const dt=Math.min(.05,(now-last)/1000);last=now;const state=stateRef.current;if(!state.paused&&!undoPending.current&&tutorialAllowsSimulation(tutorialRef.current))for(let i=0;i<state.speed*CONFIG.factory.baseSpeed;i++)game.step(dt);
       const camera=cameraRef.current;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.setTransform(dpr*camera.k,0,0,dpr*camera.k,dpr*camera.x,dpr*camera.y);ctx.transform(...ISO);
       renderer.draw({selectedLine:state.tool.kind==="rail"||state.tool.kind==="crossing"?state.tool.line:null,hover:hoverRef.current,placement:state.tool.kind==="hub"?state.tool.material:null,selectedNode:state.selected,tubeFrom:state.tool.kind==="tube"?state.tool.from:null,dragFrom:dragRef.current,draftPath:draftRef.current,selectedTrack:overlayRef.current.selectedTrack, tutorialSource:overlayRef.current.tutorialSource, tutorialTarget:tutorialRef.current!==null&&tutorialRef.current>=TUTORIAL.place&&tutorialRef.current<=TUTORIAL.produced?game.companies.find(c=>c.companyKind==="sawmill")?.index??null:null});
       if(tutorialRef.current===TUTORIAL.delivery&&game.companies.some(c=>c.companyKind==="sawmill"&&c.produced>0))setTutorial(TUTORIAL.produced);
-      elapsed+=dt;if(elapsed>.15){elapsed=0;setTick(t=>t+1);}raf=requestAnimationFrame(loop);};raf=requestAnimationFrame(loop);
+      elapsed+=dt;if(elapsed>.15){elapsed=0;prefetch();setTick(t=>t+1);}raf=requestAnimationFrame(loop);};raf=requestAnimationFrame(loop);
     return()=>{observer.disconnect();select(canvas).on(".zoom",null);zoomRef.current=null;cancelAnimationFrame(raf);off();for(const timer of timerRef.current)clearTimeout(timer);timerRef.current=[];if(gameRef.current===game)gameRef.current=null;};
   },[charter,runKey,seed,toast]);
   const point=(element:HTMLCanvasElement,x:number,y:number):Pt=>{const r=element.getBoundingClientRect();return fromIso(cameraRef.current.invert([x-r.left,y-r.top]) as Pt);};

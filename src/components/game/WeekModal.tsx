@@ -3,10 +3,13 @@ import type { EngineerFeedback } from "@/shared/types";
 import { Btn, Modal } from "./ui";
 import { TrainFront, Trees, Package, Waypoints, Waves, Mountain, Ship, Route } from "lucide-react";
 import { ArtIcon, GoodIcon } from "./icons";
+import { useEffect } from "react";
+import { narrate } from "./narrator";
 const upgradeIcons: Record<string, typeof TrainFront> = {line:Route,hubs:Trees,train:TrainFront,wagons:Package,track:Waypoints,bridge:Waves,tunnel:Mountain,boat:Ship,tube:Waypoints};
 
 export function WeekModal({ game, week, feedback, onPick }: { game: FactoryGame; week: number; feedback: EngineerFeedback | null; onPick: (i: number) => void }) {
   const advice = game.contractsMissed > 0 ? "Supply the order with the least time left." : game.hubs.some(h => Object.values(h.stock).some(n => n >= 20)) ? "Add trains or carriages where cargo is piling up." : "Connect more collectors to factories that need supplies.";
+  useEffect(() => { narrate(`Week ${week} complete. Choose one upgrade: ${game.offers.map((o) => o.label).join(", ")}. ${advice}`, true); }, [week]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Modal>
       <div className="weekly-event">

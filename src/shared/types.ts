@@ -109,5 +109,7 @@ export interface EngineerFeedback {
   headline: string;
   notes: string[];
   concept?: { title: string; body: string } | undefined;
+  /** Final report only: AI-judged grade; absent means use scoring.ts. */
+  grade?: { letter: "A" | "B" | "C" | "D" | "F"; score: number; rationale: string } | undefined;
   source: "ai" | "fallback";
 }

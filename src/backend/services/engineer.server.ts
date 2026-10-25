@@ -13,13 +13,18 @@ Diagnose supply-chain starvation, freight capacity, company coverage, production
 Trains do not require fuel, crew shifts or repairs in factory mode. Never mention passenger shapes, crowds or rider abandonment.
 For legacy metrics, diagnose headways, redundancy, coverage and transfers.
 Cite specific numbers. Be concrete about what to build next. Keep each note under 35 words.
+For the final report you also get "snapshot" (player state, difficulty, perf) and "baseline" (rule-based score 0-100 and parts).
+Then grade the run: harder difficulty and fewer missed orders earn credit; stay within ±12 of the baseline score unless the stats strongly justify it.
+Final-report JSON adds "grade": {"letter": "A"|"B"|"C"|"D"|"F", "score": integer 0-100, "rationale": string (max 25 words)}.
 JSON shape: {"headline": string (max 12 words), "notes": string[] (2-4 items), "concept": {"title": string, "body": string (max 45 words)}}`;
 
-export async function critiqueNetwork(m: NetworkMetrics, final: boolean): Promise<EngineerFeedback> {
-  const raw = await askJson<Partial<EngineerFeedback>>(SYSTEM, JSON.stringify({ stage: final ? "final report" : `end of week ${m.week}`, metrics: m }));
+export async function critiqueNetwork(m: NetworkMetrics, final: boolean, extra?: { snapshot?: unknown; baseline?: unknown }): Promise<EngineerFeedback> {
+  const raw = await askJson<Partial<EngineerFeedback>>(SYSTEM, JSON.stringify({ stage: final ? "final report" : `end of week ${m.week}`, metrics: m, ...(final ? extra : {}) }));
   const notes = Array.isArray(raw?.notes) ? raw.notes.filter((n): n is string => typeof n === "string").slice(0, 4) : [];
   if (!raw || typeof raw.headline !== "string" || !notes.length) return fallbackFeedback(m);
   const concept = raw.concept && typeof raw.concept.title === "string" && typeof raw.concept.body === "string"
     ? { title: raw.concept.title.slice(0, 60), body: raw.concept.body.slice(0, 300) } : undefined;
-  return { headline: raw.headline.slice(0, 90), notes: notes.map((n) => n.slice(0, 240)), concept, source: "ai" };
+  const g = raw.grade, score = Math.round(Number(g?.score));
+  const grade = final && g && ["A", "B", "C", "D", "F"].includes(g.letter) && Number.isFinite(score) ? { letter: g.letter, score: Math.max(0, Math.min(100, score)), rationale: String(g.rationale ?? "").slice(0, 200) } : undefined;
+  return { headline: raw.headline.slice(0, 90), notes: notes.map((n) => n.slice(0, 240)), concept, grade, source: "ai" };
 }

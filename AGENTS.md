@@ -49,3 +49,5 @@
 - Collector removal records actual paid cost, requires disconnection, and remaps all station references when compacting the station array. Why: free gifts cannot yield refunds and unrelated routes and orders remain valid.
 - Paid train purchase costs are checkpointed separately from gift inventory; sales consume a paid entitlement and a non-gift spare train. Why: stock remains fungible without allowing starting supplies or gifts to generate sale credits.
 - Route controls and canvas resolve the shared ordered color-token bank by rail-line order. Why: new lines remain distinct even when non-rail connections occupy IDs.
+- The Gemini director (shared/director.ts contract, director.server.ts) receives FactoryGame.snapshot() and returns sanitized upgrade/order plans prefetched by useGameSession before week end or the next order; FactoryGame falls back to RNG when no plan is queued. Why: AI adapts difficulty without blocking gameplay.
+- Audio settings live in components/game/settings.ts (localStorage); ElevenLabs narration goes through voice.functions.ts and narrator.ts, disabling itself when no key is set. Why: one toggleable source for sound and narration.

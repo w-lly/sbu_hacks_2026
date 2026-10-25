@@ -12,8 +12,8 @@ const metricsSchema = z.object({
 });
 
 export const getEngineerFeedback = createServerFn({ method: "POST" })
-  .inputValidator((input) => z.object({ metrics: metricsSchema, final: z.boolean() }).parse(input))
+  .inputValidator((input) => z.object({ metrics: metricsSchema, final: z.boolean(), snapshot: z.record(z.unknown()).optional(), baseline: z.object({ score: z.number(), grade: z.string().max(2), parts: z.record(z.number()) }).optional() }).parse(input))
   .handler(async ({ data }) => {
     const { critiqueNetwork } = await import("../services/engineer.server");
-    return critiqueNetwork(data.metrics, data.final);
+    return critiqueNetwork(data.metrics, data.final, { snapshot: data.snapshot, baseline: data.baseline });
   });

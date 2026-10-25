@@ -1,5 +1,7 @@
 /** Headless, seeded industrial logistics simulation. No React or DOM dependencies. */
 import type { Charter, NetworkMetrics } from "@/shared/types";
+import type { DirectorPlan, GameSnapshot, OrderSpec, UpgradeId } from "@/shared/director";
+import { UPGRADE_LIMITS } from "@/shared/director";
 import { COMMODITIES, RAW_MATERIALS, RECIPES, emptyStock, type Commodity, type CompanyKind, type FreightContract, type RawMaterial, type Stock } from "@/shared/factory";
 import { CONFIG } from "./config";
 import { Ground, Terrain, type SegmentSurvey } from "./terrain";
@@ -36,6 +38,8 @@ export class FactoryGame {
   credits = F.startingCredits; hubsAvailable = F.startingHubs;
   time = 0; week = 1; weekTime = 0; phase: "running" | "picking" | "complete" = "running";
   offers: Upgrade[] = []; contracts: FreightContract[] = [];
+  /** AI-directed upgrades for the next week and queued orders; empty means RNG fallback. */
+  plannedUpgrades: { id: UpgradeId; amount: number }[] = []; queuedOrders: OrderSpec[] = []; pace: DirectorPlan["pace"] | null = null;
   delivered = 0; products = 0; revenue = 0; trackUsed = 0;
   contractsCompleted = 0; contractsMissed = 0;
   private orderAllocated = new Map<string, number>(); private orderStock = new Map<string, number>();
@@ -390,6 +394,11 @@ export class FactoryGame {
   }
   trainPos(l:FreightLine,tr:FreightTrain) {const seg=l.segments[tr.seg];if(!seg)return{x:0,y:0,ang:0};const a=this.stations[seg.a],b=this.stations[seg.b];if(!a||!b)return{x:0,y:0,ang:0};return pointOnRoute(l.type==="boat"?seg.waterPath??[]:seg.path??[a.pos,b.pos],tr.t);}
   private issueContract() {
+    const queued = this.queuedOrders.shift(), qc = queued ? this.stations[queued.company] : undefined;
+    if (queued && qc?.type === "company" && qc.companyKind && RECIPES[qc.companyKind].inputs[queued.good]) {
+      this.contracts.push({ id:this.nextContract++, company:qc.index, good:queued.good, quantity:queued.quantity, delivered:0, deadline:this.time+queued.seconds, status:"open" });
+      this.emit({ type:"contract",title:`New order: ${qc.name} needs ${queued.quantity} ${queued.good}` }); this.reconcileOrders(); return;
+    }
     const company = this.companies[this.nextContract % this.companies.length]; if (!company?.companyKind) return;
     const inputs = COMMODITIES.filter(g => RECIPES[company.companyKind ?? "foundry"].inputs[g]); const good = inputs[this.rng.int(inputs.length)]; if (!good) return;
     this.contracts.push({ id:this.nextContract++, company:company.index,good,quantity:F.contractQuantity,delivered:0,deadline:this.time+F.contractSeconds,status:"open" });
@@ -436,8 +445,38 @@ export class FactoryGame {
         {id:"boat",label:"River freight",description:"Get one free boat to carry cargo on water.",apply:()=>{this.grantGift("boats",1);}},
         {id:"tube",label:"Pneumatic link",description:"Get one free pneumatic link.",apply:()=>{this.grantGift("tubes",1);}},
       ];
-      const crossing=choices.filter(c=>["bridge","tunnel","boat"].includes(c.id));const ordinary=choices.filter(c=>!crossing.includes(c));this.offers = [crossing[(this.week-2)%3] as Upgrade,...this.rng.shuffle(ordinary).slice(0,2)]; this.phase = "picking"; this.emit({type:"week",week:completedWeek});
+      const crossing=choices.filter(c=>["bridge","tunnel","boat"].includes(c.id));const ordinary=choices.filter(c=>!crossing.includes(c));this.offers = this.plannedUpgrades.length===3?this.plannedUpgrades.map(u=>this.makeUpgrade(u.id,u.amount)):[crossing[(this.week-2)%3] as Upgrade,...this.rng.shuffle(ordinary).slice(0,2)]; this.plannedUpgrades=[]; this.phase = "picking"; this.emit({type:"week",week:completedWeek});
     }
+  }
+  private makeUpgrade(id: UpgradeId, amount: number): Upgrade {
+    const n = Math.max(UPGRADE_LIMITS[id][0], Math.min(UPGRADE_LIMITS[id][1], Math.round(amount))), plural = (one: string, many: string) => n === 1 ? one : many;
+    switch (id) {
+      case "line": return {id,label:"New train line",description:"Add one new train line.",apply:()=>{this.addRailLine();}};
+      case "hubs": return {id,label:"Collectors",description:`Place your next ${n} ${plural("collector","collectors")} for free.`,apply:()=>{this.grantGift("collectors",n);}};
+      case "train": return {id,label:plural("Train","Trains"),description:`Get ${n} more ${plural("train","trains")}.`,apply:()=>{this.grantGift("locomotives",n);}};
+      case "wagons": return {id,label:"Carriages",description:`Get ${n} ${plural("carriage","carriages")} to carry more cargo.`,apply:()=>{this.grantGift("carriages",n);}};
+      case "track": return {id,label:"Track",description:`Get ${n} more track.`,apply:()=>{this.grantGift("track",n);}};
+      case "bridge": return {id,label:plural("Bridge","Bridges"),description:`Get ${n} ${plural("bridge","bridges")} to cross water.`,apply:()=>{this.grantGift("bridges",n);}};
+      case "tunnel": return {id,label:plural("Tunnel","Tunnels"),description:`Get ${n} ${plural("tunnel","tunnels")} to cross mountains.`,apply:()=>{this.grantGift("tunnels",n);}};
+      case "boat": return {id,label:"River freight",description:`Get ${n} free ${plural("boat","boats")} to carry cargo on water.`,apply:()=>{this.grantGift("boats",n);}};
+      case "tube": return {id,label:"Pneumatic link",description:`Get ${n} free pneumatic ${plural("link","links")}.`,apply:()=>{this.grantGift("tubes",n);}};
+    }
+  }
+  /** Accept a validated AI plan; upgrades apply at the next week end, orders queue for upcoming issues. */
+  applyPlan(plan: DirectorPlan) { this.pace = plan.pace; if (plan.upgrades.length === 3) this.plannedUpgrades = plan.upgrades.slice(); if (plan.orders.length) this.queuedOrders = plan.orders.slice(); }
+  get nextOrderIn() { return Math.max(0, F.contractInterval - this.contractClock); }
+  /** Compact state for the AI director; coordinates rounded to keep prompts short. */
+  snapshot(difficulty: string): GameSnapshot {
+    const r = (n: number) => Math.round(n), done = this.contractsCompleted, miss = this.contractsMissed;
+    const working = this.companies.filter(c => c.produced > 0).length / Math.max(1, this.companies.length);
+    const perf = Math.max(0, Math.min(1, 0.45 * (done / Math.max(1, done + miss)) + 0.35 * working + 0.2 * Math.min(1, this.products / (40 * this.week))));
+    return { lvl: this.charter.slug, diff: difficulty, wk: this.week, wkOf: CONFIG.week.total, t: r(this.time), cr: r(this.credits), rev: r(this.revenue), prod: this.products,
+      ord: { done, miss, open: this.contracts.filter(c => c.status === "open").map(c => ({ co: c.company, g: c.good, need: c.quantity - c.delivered, left: r(c.deadline - this.time) })) },
+      inv: { trk: r(this.inv.track), loco: this.inv.locomotives, car: this.inv.carriages, br: this.inv.bridges, tun: this.inv.tunnels, boat: this.boats, tube: this.inv.tubes, coll: this.hubsAvailable },
+      lines: this.lines.filter(l => l.stops.length > 1).length, trains: this.lines.reduce((n, l) => n + l.trains.length, 0),
+      hubs: this.hubs.slice(0, 60).map(h => ({ m: h.material ?? "transfer", x: r(h.pos[0]), y: r(h.pos[1]), stock: Object.values(h.stock).reduce((a, b) => a + b, 0) })),
+      cos: this.companies.slice(0, 60).map(c => ({ i: c.index, k: c.companyKind ?? "foundry", x: r(c.pos[0]), y: r(c.pos[1]), on: this.lines.some(l => l.stops.includes(c.index)), made: c.produced, inputs: Object.keys(RECIPES[c.companyKind ?? "foundry"].inputs) })),
+      dep: { claimed: this.resources.filter(d => d.hub !== null).length, total: this.resources.length }, perf: Math.round(perf * 100) / 100 };
   }
   addRailLine() {const id=this.lines.length;this.lines.push({id,name:`Freight ${this.railLines().length+1}`,stops:[],segments:[],trains:[],carriages:0,type:"rail"});}
   pickOffer(i: number) { if (this.phase !== "picking") return; const offer=this.offers[i]; if (!offer) return; offer.apply();this.offers=[];this.phase="running"; }

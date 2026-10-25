@@ -3,6 +3,8 @@ export class SoundBoard {
   private ctx: AudioContext | null = null;
   private last = new Map<string, number>();
   muted = false;
+  /** Master volume 0–1 from player settings. */
+  volume = 1;
 
   private ac() {
     if (typeof window === "undefined") return null;
@@ -22,7 +24,7 @@ export class SoundBoard {
     const o = ac.createOscillator(), g = ac.createGain();
     o.type = type; o.frequency.value = freq;
     if (slide) o.frequency.exponentialRampToValueAtTime(slide, ac.currentTime + dur);
-    g.gain.setValueAtTime(vol, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+    g.gain.setValueAtTime(Math.max(0.0001, vol * this.volume), ac.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
     o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
   }
 
@@ -32,7 +34,7 @@ export class SoundBoard {
     const d = buf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
     const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-    f.type = "bandpass"; f.frequency.value = freq; g.gain.value = vol;
+    f.type = "bandpass"; f.frequency.value = freq; g.gain.value = vol * this.volume;
     src.buffer = buf; src.connect(f).connect(g).connect(ac.destination); src.start();
   }
 

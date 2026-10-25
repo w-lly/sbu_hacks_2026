@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { Btn } from './ui';
+import { narrate } from './narrator';
 import { TUTORIAL_STEPS, TUTORIAL } from './tutorial-steps';
 type Point = [number, number];
 type Props = { step: number; onStep: (n: number) => void; onClose: () => void; mapPoint: (kind: 'forest' | 'source' | 'destination') => Point | null; orders: boolean };
@@ -8,6 +9,7 @@ export function GuidedTutorial({ step, onStep, onClose, orders }: Props) {
   const guide = useRef<HTMLElement>(null);
   const [rect, setRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const content = TUTORIAL_STEPS[step];
+  useEffect(() => { if (content) narrate(`${content.title}. ${content.body}`, true); }, [step, content]);
   useEffect(() => {
     const update = () => {
       if (!content) return;

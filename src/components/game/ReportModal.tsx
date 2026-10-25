@@ -6,16 +6,23 @@ import { getEngineerFeedback } from "@/backend/functions/engineer.functions";
 import { fallbackFeedback } from "@/shared/engineer-rules";
 import type { EngineerFeedback, NetworkMetrics } from "@/shared/types";
 import { Btn, Modal } from "./ui";
+import { narrate } from "./narrator";
 
 const PART_LABEL = { service: "Order service", coverage: "Company coverage", resilience: "Route diversity", efficiency: "Track efficiency", survival: "Charter duration" } as const;
 
-export function ReportModal({ game, metrics, onRetry }: { game: FactoryGame; metrics: NetworkMetrics; seed: number; onRetry: () => void }) {
+export function ReportModal({ game, metrics, difficulty, onRetry }: { game: FactoryGame; metrics: NetworkMetrics; seed: number; difficulty: string; onRetry: () => void }) {
   const result = scoreBreakdown(metrics);
   const [feedback, setFeedback] = useState<EngineerFeedback | null>(() => fallbackFeedback(metrics));
 
   useEffect(() => {
-    getEngineerFeedback({ data: { metrics, final: true } }).catch(() => fallbackFeedback(metrics)).then(setFeedback);
+    let live = true;
+    getEngineerFeedback({ data: { metrics, final: true, snapshot: game.snapshot(difficulty) as unknown as Record<string, unknown>, baseline: { score: result.score, grade: result.grade, parts: result.parts } } })
+      .catch(() => fallbackFeedback(metrics))
+      .then((f) => { if (!live) return; setFeedback(f); const g = f.grade ?? result; narrate(`Grade ${"letter" in g ? g.letter : g.grade}. ${f.headline}. ${f.notes[0] ?? ""}`); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metrics, game]);
+  const grade = feedback?.grade ? { letter: feedback.grade.letter, score: feedback.grade.score } : { letter: result.grade, score: result.score };
 
 
   return (
@@ -26,8 +33,8 @@ export function ReportModal({ game, metrics, onRetry }: { game: FactoryGame; met
           <h2 className="font-display text-3xl">{game.phase === "complete" ? "Industrial charter fulfilled" : "Industrial report filed"}</h2>
         </div>
         <div className="text-right">
-          <div className="font-display text-6xl leading-none text-brass">{result.grade}</div>
-          <div className="label-caps text-xs text-muted-foreground">{result.score} / 100</div>
+          <div className="font-display text-6xl leading-none text-brass">{grade.letter}</div>
+          <div className="label-caps text-xs text-muted-foreground">{grade.score} / 100</div>
         </div>
       </div>
 
