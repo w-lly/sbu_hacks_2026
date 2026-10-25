@@ -9,7 +9,7 @@ import { generateWorld } from "./world";
 import { findGridPath, samePoint, pointOnRoute, snapPoint } from "./grid";
 
 export interface FactoryNode {
-  index: number; name: string; realName: string; pos: Pt; type: "hub" | "company";
+  index: number; name: string; realName: string; pos: Pt; type: "hub" | "company" | "transfer";
   material?: RawMaterial; companyKind?: CompanyKind; stock: Stock; progress: number;
   produced: number; working: boolean; collection: number; rotation?: number;
 }
@@ -84,20 +84,28 @@ export class FactoryGame {
     }
     return base;
   }
-  portCapacity(s:FactoryNode,side:"input"|"output") { return s.type==="hub"?(side==="input"?F.hubInputPorts:F.hubOutputPorts):(side==="input"?Object.keys(RECIPES[s.companyKind??"foundry"].inputs).length*F.inputPorts:(RECIPES[s.companyKind??"foundry"].output?F.outputPorts:0)); }
+  portCapacity(s:FactoryNode,side:"input"|"output") { return s.type==="transfer"?F.transferPorts:s.type==="hub"?(side==="input"?F.hubInputPorts:F.hubOutputPorts):(side==="input"?Object.keys(RECIPES[s.companyKind??"foundry"].inputs).length*F.inputPorts:(RECIPES[s.companyKind??"foundry"].output?F.outputPorts:0)); }
   portUsage(index:number,side:"input"|"output") { return this.lines.reduce((n,l)=>n+l.segments.filter(seg=>side==="input"?seg.b===index:seg.a===index).length,0); }
   portPosition(index:number,side:"input"|"output",slot:number):Pt { const s=this.stations[index];if(!s)return[0,0];const count=this.portCapacity(s,side);const x=side==="input"?-F.portReach:F.portReach,y=(slot-Math.floor(count/2))*F.portSpacing;const r=s.rotation??0;const offsets:Pt[]=[[x,y],[-y,x],[-x,-y],[y,-x]];const offset=offsets[r%4]??[x,y];return[s.pos[0]+offset[0],s.pos[1]+offset[1]]; }
   portOccupied(index:number,side:"input"|"output",slot:number):boolean {const pos=this.portPosition(index,side,slot);return this.lines.some(l=>l.segments.some(seg=>{const p=side==="input"?seg.path?.at(-1):seg.path?.[0];return (side==="input"?seg.b===index:seg.a===index)&&p?.[0]===pos[0]&&p?.[1]===pos[1];}));}
   firstFreePort(index:number,side:"input"|"output") {const node=this.stations[index];if(!node)return -1;for(let i=0;i<this.portCapacity(node,side);i++)if(!this.portOccupied(index,side,i))return i;return -1;}
   portAt(p:Pt,side:"input"|"output",radius=F.portSnapRadius) {let nearest:{index:number;slot:number}|null=null,best=radius;for(const s of this.stations)for(let slot=0;slot<this.portCapacity(s,side);slot++){if(this.portOccupied(s.index,side,slot))continue;const pos=this.portPosition(s.index,side,slot),distance=Math.hypot(p[0]-pos[0],p[1]-pos[1]);if(distance<best){best=distance;nearest={index:s.index,slot};}}return nearest;}
   private facilityGround(p:Pt) {return [-F.buildingHalfWidth,0,F.buildingHalfWidth].every(dx=>[-F.buildingHalfWidth,0,F.buildingHalfWidth].every(dy=>!this.terrain.isWater(p[0]+dx,p[1]+dy)&&!this.world.isMountain(p[0]+dx,p[1]+dy)));}
-  terrainBlocked(p:Pt) {return (this.terrain.isWater(...p)&&this.inv.bridges<1)||(this.world.isMountain(...p)&&this.inv.tunnels<1);}
+  terrainBlocked(p:Pt, crossing?:"bridge"|"tunnel") {return (this.terrain.isWater(...p)&&crossing!=="bridge")||(this.world.isMountain(...p)&&crossing!=="tunnel");}
+  routeCellBlocked(p:Pt,crossing?:"bridge"|"tunnel") {return this.trackBlocked(p)||[-F.grid/2,-F.grid/4,0,F.grid/4,F.grid/2].some(offset=>this.terrainBlocked([p[0]+offset,p[1]],crossing)||this.terrainBlocked([p[0],p[1]+offset],crossing));}
 
   trackBlocked(p:Pt) {return p[0]<F.grid||p[1]<F.grid||p[0]>F.worldWidth-F.grid||p[1]>F.worldHeight-F.grid||this.stations.some(s=>Math.abs(s.pos[0]-p[0])<F.buildingHalfWidth+F.buildingClearance&&Math.abs(s.pos[1]-p[1])<F.buildingHalfWidth+F.buildingClearance);}
-  segmentPath(a:number,b:number,_lineId:number):Pt[] {
-    const output=this.firstFreePort(a,"output"),input=this.firstFreePort(b,"input");if(output<0||input<0)return [];
-    const start=this.portPosition(a,"output",output),end=this.portPosition(b,"input",input);
-    return findGridPath(start,end,p=>this.trackBlocked(p)||this.terrainBlocked(p));
+  segmentPath(a:number,b:number,_lineId:number,crossing?:"bridge"|"tunnel"):Pt[] {
+    const A=this.stations[a],B=this.stations[b];if(!A||!B)return[];
+    let best:Pt[]=[];
+    for(let output=0;output<this.portCapacity(A,"output");output++)for(let input=0;input<this.portCapacity(B,"input");input++) {
+      if(this.portOccupied(a,"output",output)||this.portOccupied(b,"input",input))continue;
+      const start=this.portPosition(a,"output",output),end=this.portPosition(b,"input",input);
+      if(this.routeCellBlocked(start,crossing)||this.routeCellBlocked(end,crossing))continue;
+      const path=findGridPath(start,end,p=>this.routeCellBlocked(p,crossing));
+      if(path.length&&(!best.length||path.length<best.length))best=path;
+    }
+    return best;
   }
   private pathError(path:Pt[],from:number,to:number):string|null {
     if(path.length<2)return "Draw track between a green output and a blue input dot.";
@@ -107,11 +115,11 @@ export class FactoryGame {
     for(let i=0;i<path.length;i++){const p=path[i],prev=path[i-1];if(!p)continue;if(!samePoint(p,snapPoint(p)))return "Tracks must follow grid intersections.";if(this.trackBlocked(p))return "Track cannot pass through a factory.";if(prev&&Math.abs(p[0]-prev[0])+Math.abs(p[1]-prev[1])!==F.grid)return "Lay track one grid cell at a time.";}
     return null;
   }
-  connect(id:number,from:number,to:number,path?:Pt[]):BuildPlan {
+  connect(id:number,from:number,to:number,path?:Pt[],crossing?:"bridge"|"tunnel"):BuildPlan {
     const l=this.lines[id];if(!l)return{ok:false,error:"Choose a route."};
     if(l.stops.length&&!l.stops.includes(from))return{ok:false,error:"Start at a building connected to this route."};
-    if(!l.stops.length){const first=this.extend(id,from);if(!first.ok)return first;const result=this.extend(id,to,path);if(!result.ok)l.stops=[];return result;}
-    return this.extend(id,to,path,from);
+    if(!l.stops.length){const first=this.extend(id,from);if(!first.ok)return first;const result=this.extend(id,to,path,from,crossing);if(!result.ok)l.stops=[];return result;}
+    return this.extend(id,to,path,from,crossing);
   }
   on(fn: (e: FactoryEvent) => void) { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; }
   private emit(e: FactoryEvent) { for (const fn of this.listeners) fn(e); }
@@ -121,7 +129,7 @@ export class FactoryGame {
   get hourOfDay() { return (6 + this.time / CONFIG.day.seconds * 24) % 24; }
   railLines() { return this.lines.filter(l => l.type === "rail"); }
   stationAt(x: number, y: number) { return this.stations.findIndex(s => Math.hypot(s.pos[0] - x, s.pos[1] - y) < Math.max(CONFIG.station.pickRadius,38)); }
-  capacity(s: FactoryNode) { return s.type === "hub" ? F.hubCapacity : F.companyCapacity; }
+  capacity(s: FactoryNode) { return s.type !== "company" ? F.hubCapacity : F.companyCapacity; }
   trainCapacity(l: FreightLine) { return l.type === "boat" ? F.boatCapacity : l.type === "tube" ? CONFIG.train.tubeCapacity : CONFIG.train.baseCapacity + l.carriages * CONFIG.train.perCarriage; }
   private spawnDeposit(kind: RawMaterial, n: number, preferred?: FactoryNode) {
     const eligible = this.companies.filter(s => s.companyKind && RECIPES[s.companyKind].inputs[kind]);
@@ -141,23 +149,24 @@ export class FactoryGame {
       this.resources.push({ id: this.resources.length, kind, pos: [x, y], remaining: F.depositStock, hub: null }); return;
     }
   }
-  planHub(kind: RawMaterial, pos: Pt): string | null {
+  planHub(kind: RawMaterial | "transfer", pos: Pt): string | null {
     pos=snapPoint(pos);
     if (this.phase === "complete") return "This charter is complete.";
     if (!this.terrain.inBounds(...pos) || !this.facilityGround(pos)) return "Facilities need dry ground inside the map.";
     if (!this.inFrontier(pos)) return "That land is not surveyed yet; the frontier widens each week.";
     if (this.stations.some(s => Math.abs(s.pos[0]-pos[0])<F.buildingHalfWidth*2+F.placementGap&&Math.abs(s.pos[1]-pos[1])<F.buildingHalfWidth*2+F.placementGap)) return "Leave more room between facilities.";
     if (this.lines.some(l=>l.segments.some(seg=>(seg.path??[]).some(p=>Math.abs(p[0]-pos[0])<F.buildingHalfWidth+F.buildingClearance&&Math.abs(p[1]-pos[1])<F.buildingHalfWidth+F.buildingClearance)))) return "A facility cannot cover existing track.";
-    if (this.hubsAvailable <= 0) return "No collection facilities available; request more next week.";
-    if (this.credits < F.hubCost) return "Not enough credits for a facility.";
-    if (kind === "timber" && this.forestNear(pos)) return null;
+    if (kind !== "transfer" && this.hubsAvailable <= 0) return "No collection facilities available; request more next week.";
+    if (this.credits < (kind === "transfer" ? F.transferCost : F.hubCost)) return "Not enough credits for a facility.";
+    if (kind === "transfer" || (kind === "timber" && this.forestNear(pos))) return null;
     if (!this.resources.some(r => r.kind === kind && r.hub === null && r.remaining > 0 && Math.hypot(r.pos[0] - pos[0], r.pos[1] - pos[1]) <= F.collectionRadius)) return "No unclaimed matching deposit within collection range.";
     return null;
   }
-  placeHub(kind: RawMaterial, pos: Pt): string | null {
+  placeHub(kind: RawMaterial | "transfer", pos: Pt): string | null {
     pos=snapPoint(pos);
     const error = this.planHub(kind, pos); if (error) return error;
     const index = this.stations.length;
+    if(kind === "transfer") {this.stations.push({index,name:`Transfer Station ${this.stations.filter(s=>s.type==="transfer").length+1}`,realName:"Transfer station",pos:[...pos],type:"transfer",stock:emptyStock(),progress:0,produced:0,working:false,collection:0});this.credits-=F.transferCost;return null;}
     this.stations.push({ index, name: `${kind === "timber" ? "Logging" : kind === "iron" ? "Iron" : "Coal"} Hub ${this.hubs.length + 1}`, realName: "Collection facility", pos: [...pos], type: "hub", material: kind, stock: emptyStock(), progress: 0, produced: 0, working: false, collection: 0 });
     this.hubsAvailable--; this.credits -= F.hubCost;
     for (const r of this.resources) if (r.kind === kind && r.hub === null && Math.hypot(r.pos[0] - pos[0], r.pos[1] - pos[1]) <= F.collectionRadius) r.hub = index;
@@ -165,7 +174,7 @@ export class FactoryGame {
     if (kind === "timber" && !this.resources.some(r => r.hub === index)) { const spot = this.forestNear(pos); if (spot) this.resources.push({ id: this.resources.length, kind, pos: spot, remaining: F.depositStock, hub: index, forest: true }); }
     return null;
   }
-  planExtend(lineId: number, idx: number, drawnPath?:Pt[], source?:number): BuildPlan {
+  planExtend(lineId: number, idx: number, drawnPath?:Pt[], source?:number,crossing?:"bridge"|"tunnel"): BuildPlan {
     const l = this.lines[lineId], s = this.stations[idx];
     if (!l || !s || this.phase === "complete") return { ok: false, error: "Choose a facility and an active freight line." };
     if (l.type !== "rail") return { ok: false, error: "Pneumatic links have two endpoints." };
@@ -176,8 +185,9 @@ export class FactoryGame {
     if (!a) return { ok: false, error: "Missing line endpoint." };
     if(this.portUsage(a.index,"output")>=this.portCapacity(a,"output"))return{ok:false,error:"All output ports are occupied."};
     if(this.portUsage(s.index,"input")>=this.portCapacity(s,"input"))return{ok:false,error:"All input ports are occupied."};
-    const path=drawnPath??this.segmentPath(a.index,s.index,lineId);
+    const path=drawnPath??this.segmentPath(a.index,s.index,lineId,crossing);
     const error=this.pathError(path,a.index,s.index);if(error)return {ok:false,error};
+    if(path.some(p=>this.routeCellBlocked(p,crossing)))return{ok:false,error:"Normal rails must go around water and mountains. Select a crossing tool first."};
     const parts=path.slice(1).map((p,i)=>this.terrain.survey(path[i]??a.pos,p));
     const survey:SegmentSurvey={length:0,cost:0,grade:0,waterRuns:[],mix:{land:0,woods:0,wetland:0,park:0,water:0}};
     let previousWet=false;
@@ -185,16 +195,16 @@ export class FactoryGame {
     const crossings: ("bridge" | "tunnel")[] = [];
     let bridges = this.inv.bridges, tunnels = this.inv.tunnels;
     for (const span of survey.waterRuns) {
-      if (span <= F.bridgeSpan && bridges > 0) { bridges--; crossings.push("bridge"); }
+      if (crossing === "bridge" && span <= F.bridgeSpan && bridges > 0) { bridges--; crossings.push("bridge"); }
       else return { ok: false, error: "Water needs an unlocked bridge; use boats for wide crossings.", survey, from };
     }
     let mountain=false;
-    for(const p of path){const next=this.world.isMountain(...p);if(next&&!mountain){if(tunnels<1)return{ok:false,error:"Mountains need a tunnel from weekly upgrades.",survey,from};tunnels--;crossings.push("tunnel");}mountain=next;}
+    for(const p of path){const next=this.world.isMountain(...p);if(next&&!mountain){if(crossing!=="tunnel"||tunnels<1)return{ok:false,error:"Mountains need a tunnel from weekly upgrades.",survey,from};tunnels--;crossings.push("tunnel");}mountain=next;}
     const cost = Math.round(survey.cost + survey.waterRuns.reduce((sum, span, i) => sum + span * ((crossings[i] === "bridge" ? CONFIG.crossing.bridgeTrackMult : CONFIG.crossing.tunnelTrackMult) - 1), 0));
     return { ok: cost <= this.inv.track, error: cost > this.inv.track ? `Needs ${cost} rails; only ${Math.round(this.inv.track)} remain.` : undefined, cost, survey, crossings, from, path };
   }
-  extend(id: number, idx: number, path?:Pt[], source?:number): BuildPlan {
-    const p = this.planExtend(id, idx, path, source), l = this.lines[id]; if (!p.ok || !l) return p;
+  extend(id: number, idx: number, path?:Pt[], source?:number,crossing?:"bridge"|"tunnel"): BuildPlan {
+    const p = this.planExtend(id, idx, path, source,crossing), l = this.lines[id]; if (!p.ok || !l) return p;
     if (!l.stops.length) { l.stops.push(idx); return p; }
     if (p.from === undefined || !p.survey || !p.crossings || p.cost === undefined) return { ok: false, error: "Incomplete survey." };
     l.segments.push({ a: p.from, b: idx, survey: p.survey, crossings: p.crossings, cost: p.cost, path:p.path }); l.stops.push(idx);
@@ -246,10 +256,10 @@ export class FactoryGame {
     this.lines.push({id:this.lines.length,name:"River freight",type:"boat",stops:[a,b],segments:[{a,b,path,waterPath:water,cost:0,crossings:[],survey:{...this.terrain.survey(start,end),length:Math.max(F.grid,(water.length-1)*F.grid),grade:0}}],trains:[this.newTrain()],carriages:0});this.boats--;return{ok:true,cost:0,path};
   }
   /** Construction checkpoints stay in the headless simulation, never in React. */
-  checkpoint() { return JSON.stringify({stations:this.stations,resources:this.resources,lines:this.lines,inv:this.inv,boats:this.boats,credits:this.credits,hubsAvailable:this.hubsAvailable,trackUsed:this.trackUsed,nextTrain:this.nextTrain}); }
+  checkpoint() { return JSON.stringify({stations:this.stations,resources:this.resources,lines:this.lines,inv:this.inv,boats:this.boats,credits:this.credits,hubsAvailable:this.hubsAvailable,trackUsed:this.trackUsed,nextTrain:this.nextTrain,time:this.time,week:this.week,weekTime:this.weekTime,phase:"running",contracts:this.contracts,delivered:this.delivered,products:this.products,revenue:this.revenue,contractsCompleted:this.contractsCompleted,contractsMissed:this.contractsMissed,orderAllocated:[...this.orderAllocated],orderStock:[...this.orderStock],contractClock:this.contractClock,nextContract:this.nextContract,tripSum:this.tripSum,transferSum:this.transferSum,rngState:this.rng.snapshot()}); }
   rememberAction(before:string) { if(before!==this.checkpoint()){this.history.push(before);if(this.history.length>50)this.history.shift();} }
   get canUndo() { return this.history.length>0; }
-  undoAction():string|null { const saved=this.history.pop();if(!saved)return "Nothing to undo.";const state=JSON.parse(saved);this.stations.splice(0,this.stations.length,...state.stations);this.resources.splice(0,this.resources.length,...state.resources);this.lines.splice(0,this.lines.length,...state.lines);Object.assign(this.inv,state.inv);this.boats=state.boats;this.credits=state.credits;this.hubsAvailable=state.hubsAvailable;this.trackUsed=state.trackUsed;this.nextTrain=state.nextTrain;return null; }
+  undoAction():string|null { const saved=this.history.pop();if(!saved)return "Nothing to undo.";const state=JSON.parse(saved);this.stations.splice(0,this.stations.length,...state.stations);this.resources.splice(0,this.resources.length,...state.resources);this.lines.splice(0,this.lines.length,...state.lines);Object.assign(this.inv,state.inv);this.boats=state.boats;this.credits=state.credits;this.hubsAvailable=state.hubsAvailable;this.trackUsed=state.trackUsed;this.nextTrain=state.nextTrain;for(const key of ["time","week","weekTime","phase","contracts","delivered","products","revenue","contractsCompleted","contractsMissed","contractClock","nextContract","tripSum","transferSum"] as const)Object.assign(this,{[key]:state[key]});this.orderAllocated=new Map(state.orderAllocated);this.orderStock=new Map(state.orderStock);this.rng.restore(state.rngState);this.offers=[];return null; }
   segmentAt(p:Pt,radius=F.grid*.65):{line:number;segment:number}|null { let best=radius,result:null|{line:number;segment:number}=null;for(const l of this.lines)for(let i=0;i<l.segments.length;i++){const path=l.segments[i]?.path??[];for(let j=1;j<path.length;j++){const a=path[j-1],b=path[j];if(!a||!b)continue;const dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy||1))),d=Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);if(d<best){best=d;result={line:l.id,segment:i};}}}return result; }
   canRemoveSegment(id:number,index:number) { const l=this.lines[id],seg=l?.segments[index];return !!l&&!!seg&&[seg.a,seg.b].some(node=>l.segments.filter(s=>s.a===node||s.b===node).length===1); }
   removeSegment(id:number,index:number):string|null {
@@ -363,8 +373,9 @@ export class FactoryGame {
     if (this.weekTime >= CONFIG.week.seconds) {
       const completedWeek = this.week;
       if (this.week >= CONFIG.week.total) { this.phase = "complete"; this.emit({ type:"complete" }); return; }
-      this.history=[]; this.week++; this.weekTime = 0; this.expandFrontier(); this.inv.track += CONFIG.week.trackGrant; this.credits += F.weeklyCredits;
+      this.week++; this.weekTime = 0; this.expandFrontier(); this.inv.track += CONFIG.week.trackGrant; this.credits += F.weeklyCredits;
       const choices: Upgrade[] = [
+        {id:"line",label:"New train line",description:"One additional independent freight route.",apply:()=>{this.addRailLine();}},
         {id:"hubs",label:"Collection facilities",description:"Two additional collection hubs.",apply:()=>{this.hubsAvailable+=2;}},
         {id:"train",label:"Locomotive",description:"One extra freight locomotive.",apply:()=>{this.inv.locomotives++;}},
         {id:"wagons",label:"Freight carriages",description:"Two carriages for greater cargo capacity.",apply:()=>{this.inv.carriages+=2;}},
@@ -377,6 +388,7 @@ export class FactoryGame {
       const crossing=choices.filter(c=>["bridge","tunnel","boat"].includes(c.id));const ordinary=choices.filter(c=>!crossing.includes(c));this.offers = [crossing[(this.week-2)%3] as Upgrade,...this.rng.shuffle(ordinary).slice(0,2)]; this.phase = "picking"; this.emit({type:"week",week:completedWeek});
     }
   }
+  addRailLine() {const id=this.lines.length;this.lines.push({id,name:`Freight ${this.railLines().length+1}`,stops:[],segments:[],trains:[],carriages:0,type:"rail"});}
   pickOffer(i: number) { if (this.phase !== "picking") return; const offer=this.offers[i]; if (!offer) return; offer.apply();this.offers=[];this.phase="running"; }
   metrics(): NetworkMetrics {
     const served = new Set(this.lines.filter(l=>l.stops.length>1).flatMap(l=>l.stops)); const working=this.companies.filter(s=>s.produced>0).length;

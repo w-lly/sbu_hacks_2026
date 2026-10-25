@@ -327,3 +327,12 @@
  .map-message.hud { top:auto; bottom:98px; z-index:3; }
  .map-toasts { top:auto; bottom:150px; left:52px; max-width:calc(100% - 104px); z-index:2; }
 }
+
+/* Left-side order drawer and priced construction tools. */
+.order-list.hud-orders { left:78px; right:auto; top:100px; width:250px; max-width:calc(100% - 145px); max-height:calc(100dvh - 190px); z-index:4; }
+.collector-tools.hud { top:100px; bottom:100px; transform:none; overflow-y:auto; justify-content:flex-start; }
+.collector-tools .btn-ghost,.collector-tools .btn-brass { min-height:48px; height:48px; flex-shrink:0; }
+.collector-tools .facility-cost { display:flex; align-items:center; justify-content:center; gap:2px; font-size:10px; color:inherit; }
+.route-tools.hud { top:100px; bottom:100px; transform:none; overflow-y:auto; }
+.route-tools.hud .btn-ghost { flex-shrink:0; }
+@media(max-width:700px) { .order-list.hud-orders { left:60px; right:auto; top:108px; width:230px; max-height:calc(100dvh - 220px); } .collector-tools.hud,.route-tools.hud { top:108px; bottom:116px; } }

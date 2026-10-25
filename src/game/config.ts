@@ -49,6 +49,8 @@ const RAW = {
     startingLocomotives: 5,
     startingHubs: 6,
     hubCost: 100,
+    transferCost: 200,
+    transferPorts: 3,
     collectionRadius: 85,
     placementGap: 24,
     hubCapacity: 36,

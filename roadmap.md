@@ -1,5 +1,11 @@
 # Roadmap
 
+- [x] Explicit terrain crossings and shortest dry-ground rail routes
+- [x] Left-side orders drawer, placement validity colors and visible facility costs
+- [x] Transfer station with three input and three output ports
+- [x] Repeated undo and refundable tunnel/boat removal
+- [x] Weekly extra train lines, regression tests and live verification
+
 - [x] Automatic shortest drag connections for rails, boats and pneumatic links
 - [x] Reliable stocked orders, unique building names and numbered map highlights
 - [x] Double base speed, Escape, action undo and endpoint track deletion
