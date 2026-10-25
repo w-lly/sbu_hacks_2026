@@ -15,6 +15,6 @@ quantity 4-16, seconds 60-160.
 JSON shape: {"pace":"ease"|"steady"|"push","upgrades":[{"id":string,"amount":number}],"orders":[{"company":number,"good":string,"quantity":number,"seconds":number}]}`;
 
 export async function planNext(snapshot: GameSnapshot): Promise<DirectorPlan | null> {
-  const raw = await askJson<unknown>(SYSTEM, JSON.stringify(snapshot));
+  const raw = await askJson<unknown>(SYSTEM, JSON.stringify(snapshot), "director plan");
   return sanitizePlan(raw, snapshot);
 }

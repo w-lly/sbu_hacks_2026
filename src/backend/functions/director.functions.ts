@@ -19,3 +19,9 @@ export const getDirectorPlan = createServerFn({ method: "POST" })
     const { planNext } = await import("../services/director.server");
     return planNext(data);
   });
+
+/** Reachability check for the HUD online/offline indicator. */
+export const geminiStatus = createServerFn({ method: "GET" }).handler(async () => {
+  const { checkGemini } = await import("../services/ai.server");
+  return checkGemini();
+});

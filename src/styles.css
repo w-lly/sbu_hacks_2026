@@ -499,6 +499,10 @@
 .settings-toggle small { color:var(--muted-foreground); font-size:12px; }
 .settings-toggle input, .settings-range { accent-color:var(--primary); }
 .settings-toggle input { width:20px; height:20px; }
-.settings-gear { position:fixed; top:6px; left:6px; z-index:15; width:36px; height:36px; display:grid; place-items:center; background:none; border:0; padding:0; cursor:pointer; transition:transform .3s; }
+.settings-cluster { position:fixed; top:10px; left:16px; z-index:15; display:flex; align-items:center; gap:8px; }
+.settings-gear { width:36px; height:36px; display:grid; place-items:center; background:none; border:0; padding:0; cursor:pointer; transition:transform .3s; }
 .settings-gear:hover { transform:rotate(45deg); }
+.ai-status { position:fixed; top:10px; right:16px; z-index:15; width:36px; height:36px; display:grid; place-items:center; }
+.ai-status.offline { opacity:.4; filter:grayscale(1); }
+.ai-status .steam-icon { transition:opacity .3s, filter .3s; }
 .settings-toggle:has(input:disabled) { opacity:.5; cursor:not-allowed; }

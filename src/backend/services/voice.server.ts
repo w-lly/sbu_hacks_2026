@@ -9,7 +9,11 @@ function toBase64(buf: ArrayBuffer) {
 
 export async function synthesize(text: string): Promise<{ audio: string | null; error?: string }> {
   const key = process.env["ELEVENLABS_API_KEY"];
-  if (!key) return { audio: null, error: "missing_key" };
+  if (!key) {
+    console.log("[elevenlabs] tts skipped: no API key");
+    return { audio: null, error: "missing_key" };
+  }
+  const started = Date.now();
   try {
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}?output_format=mp3_44100_128`, {
       method: "POST",
@@ -17,12 +21,14 @@ export async function synthesize(text: string): Promise<{ audio: string | null; 
       body: JSON.stringify({ text, model_id: "eleven_turbo_v2_5", voice_settings: { stability: 0.55, similarity_boost: 0.75 } }),
     });
     if (!res.ok) {
-      console.error("ElevenLabs error", res.status, await res.text().catch(() => ""));
+      console.error(`[elevenlabs] tts failed: HTTP ${res.status}`);
       return { audio: null, error: `status_${res.status}` };
     }
-    return { audio: toBase64(await res.arrayBuffer()) };
-  } catch (err) {
-    console.error("ElevenLabs call failed", err);
+    const audio = toBase64(await res.arrayBuffer());
+    console.log(`[elevenlabs] tts ok in ${Date.now() - started}ms`);
+    return { audio };
+  } catch {
+    console.error("[elevenlabs] tts failed: network error");
     return { audio: null, error: "network" };
   }
 }

@@ -14,6 +14,7 @@ import bridge from '@/assets/supplied-bridge.png';
 import tunnel from '@/assets/supplied-tunnel.png';
 import boat from '@/assets/supplied-boat.png';
 import tube from '@/assets/supplied-pneumatic_tube.png';
+import wifi from '@/assets/wifi_icon.png';
 import locomotiveRear from '@/assets/train-rear.png';
 
-export const STEAM_ART = { iron:iron, coal:coal, timber:timber, machinery:machinery, train:train, locomotive:locomotive, locomotiveRear, carriage:carriage, steel, planks, crate, clock, bridge:bridge, tunnel:tunnel, boat:boat, tube };
+export const STEAM_ART = { iron:iron, coal:coal, timber:timber, machinery:machinery, train:train, locomotive:locomotive, locomotiveRear, carriage:carriage, steel, planks, crate, clock, bridge:bridge, tunnel:tunnel, boat:boat, tube, wifi };

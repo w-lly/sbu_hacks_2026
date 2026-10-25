@@ -19,7 +19,7 @@ Final-report JSON adds "grade": {"letter": "A"|"B"|"C"|"D"|"F", "score": integer
 JSON shape: {"headline": string (max 12 words), "notes": string[] (2-4 items), "concept": {"title": string, "body": string (max 45 words)}}`;
 
 export async function critiqueNetwork(m: NetworkMetrics, final: boolean, extra?: { snapshot?: unknown; baseline?: unknown }): Promise<EngineerFeedback> {
-  const raw = await askJson<Partial<EngineerFeedback>>(SYSTEM, JSON.stringify({ stage: final ? "final report" : `end of week ${m.week}`, metrics: m, ...(final ? extra : {}) }));
+  const raw = await askJson<Partial<EngineerFeedback>>(SYSTEM, JSON.stringify({ stage: final ? "final report" : `end of week ${m.week}`, metrics: m, ...(final ? extra : {}) }), final ? "engineer final report" : "engineer weekly report");
   const notes = Array.isArray(raw?.notes) ? raw.notes.filter((n): n is string => typeof n === "string").slice(0, 4) : [];
   if (!raw || typeof raw.headline !== "string" || !notes.length) return fallbackFeedback(m);
   const concept = raw.concept && typeof raw.concept.title === "string" && typeof raw.concept.body === "string"

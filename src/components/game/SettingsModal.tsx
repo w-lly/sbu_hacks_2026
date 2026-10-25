@@ -21,7 +21,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           <input type="checkbox" checked={s.gameSound} onChange={(e) => updateSettings({ gameSound: e.target.checked })} />
         </label>
         <label className="settings-toggle mt-3">
-          <span><strong>Narration</strong><small>{voice ? "Read tutorials, orders and popups aloud (ElevenLabs)" : "Unavailable: ElevenLabs API key missing or not working"}</small></span>
+          <span><strong>Narration</strong><small>{voice ? "Read tutorials, orders and popups aloud" : "Unavailable: voice key missing or not working"}</small></span>
           <input type="checkbox" checked={voice && s.narration} disabled={!voice} onChange={(e) => { updateSettings({ narration: e.target.checked }); if (e.target.checked) narrate("Narration is on."); }} />
         </label>
       </section>

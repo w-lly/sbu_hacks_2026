@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, Pause, Play, Volume2, VolumeX, Factory, Pickaxe, Trees, Fuel, TrainFront, Undo2, Trash2, Plus, Minus, HelpCircle, X, Package, Coins, Waypoints, ArrowRight, FileChartColumn, ZoomIn, ZoomOut, RotateCw, Clock, Ship, Scan, Mountain, Waves } from 'lucide-react';
+import { ArrowLeft, Pause, Play, Volume2, VolumeX, Pickaxe, Trees, Fuel, TrainFront, Undo2, Trash2, Plus, Minus, HelpCircle, X, Package, Coins, Waypoints, ArrowRight, FileChartColumn, ZoomIn, ZoomOut, RotateCw, Clock, Scan, Mountain, Waves } from 'lucide-react';
 import transferSprite from '@/assets/building-transfer.png';
 import { CONFIG } from '@/game/config';
 import { lineColorClass } from '@/shared/line-colors';
@@ -17,6 +17,7 @@ import { GuidedTutorial } from './GuidedTutorial';
 import { TUTORIAL } from './tutorial-steps';
 import { SettingsModal } from './SettingsModal';
 import { narrate } from './narrator';
+import { useGeminiStatus } from './useGeminiStatus';
 
 
 export function GameScreen({charter}:{charter:Charter}){
@@ -27,11 +28,30 @@ export function GameScreen({charter}:{charter:Charter}){
  useEffect(()=>{const n=g&&s.selected!==null?g.stations[s.selected]:null;if(n&&s.tutorial===null)narrate(n.name);},[s.selected]);
  useEffect(()=>{if(g?.phase==='complete'){completeLevel(charter.slug);if(!report)setReport(g.metrics());}},[g,s.tick,report]);
  const selected=g&&s.selected!==null?g.stations[s.selected]:null,route=g&&(s.tool.kind==='rail'||s.tool.kind==='crossing'&&s.tool.line!==null)?g.lines[s.tool.line??0]:null;
+ const aiOnline=useGeminiStatus();
+ const [iconPos,setIconPos]=useState<{gear:number;wifi:number}|null>(null);
+ useEffect(()=>{
+  let raf=0;
+  const measure=()=>{
+   const left=document.querySelector('.collector-tools'),right=document.querySelector('.route-tools');
+   const lb=left?.getBoundingClientRect(),rb=right?.getBoundingClientRect();
+   if(lb&&lb.width&&rb&&rb.width)setIconPos({gear:lb.left+lb.width/2-18,wifi:rb.left+rb.width/2-18});
+  };
+  const schedule=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(measure);};
+  const ro=new ResizeObserver(schedule);
+  document.querySelectorAll('.collector-tools,.route-tools').forEach(el=>ro.observe(el));
+  schedule();
+  window.addEventListener('resize',schedule);
+  return ()=>{ro.disconnect();cancelAnimationFrame(raf);window.removeEventListener('resize',schedule);};
+ },[]);
 
  return <main className="factory-screen">
   <canvas ref={dragImageRef} width={1} height={1} className="native-drag-blank" aria-hidden="true"/>
   <div className="map-stage"><canvas aria-label="Industrial railway map" ref={s.canvasRef} onClick={s.onClick} onPointerDown={s.onPointerDown} onPointerMove={s.onPointerMove} onPointerUp={s.onPointerUp} onPointerCancel={s.cancelTrack} onMouseLeave={s.onLeave} onDragOver={s.onDragOver} onDrop={s.onDrop} className="factory-canvas"/></div>
-  <button type="button" title="Settings" aria-label="Settings" className="settings-gear" onClick={()=>setSettingsOpen(true)}><ArtIcon kind="machinery" size={30}/></button>
+  <div className="settings-cluster" style={iconPos?{left:iconPos.gear}:undefined}>
+   <button type="button" title="Settings" aria-label="Settings" className="settings-gear" onClick={()=>setSettingsOpen(true)}><ArtIcon kind="machinery" size={30}/></button>
+  </div>
+  <span role="status" className={`ai-status ${aiOnline?'online':'offline'}`} style={iconPos?{left:iconPos.wifi}:undefined} title={aiOnline===null?'Checking AI connection…':aiOnline?'AI online: upgrades, orders and reports use Gemini':'AI offline: using built-in upgrades, orders and reports'} aria-label={aiOnline?'AI online':'AI offline'}><ArtIcon kind="wifi" size={28}/></span>
   <header className="map-header hud">
    <div className="map-identity"><Link to="/" aria-label="Back to maps" title="Back to maps" className="map-back"><ArrowLeft size={19}/></Link><div><h1>Back On Track</h1><p>{charter.name}</p></div></div>
     <div className="map-counters"><span title="Credits"><Coins size={18}/><strong>{g?.credits??0}</strong></span><span title="Products"><ArtIcon kind="crate" size={18}/><strong>{g?.products??0}</strong></span><span className="week-counter"><ArtIcon kind="clock" size={18}/><strong>Week {g?.week??1}</strong><span>{Math.max(0,Math.ceil(CONFIG.week.seconds-(g?.weekTime??0)))}s</span><progress className="factory-progress" value={g?.weekTime??0} max={CONFIG.week.seconds}/></span></div>
@@ -44,7 +64,7 @@ export function GameScreen({charter}:{charter:Charter}){
     <span className="tool-divider"/><Btn title="Production recipes" onClick={()=>setPrimer(true)}><ArtIcon kind="machinery" size={24}/></Btn><Btn title="Company orders" aria-label="Company orders" aria-expanded={orders} variant={orders?'brass':'ghost'} onClick={()=>{setOrders(!orders);if(s.tutorial===TUTORIAL.orders&&!orders)s.setTutorial(TUTORIAL.orders+1);}}><ArtIcon kind="crate" size={24}/></Btn>
   </nav>
   <nav className="route-tools hud" aria-label="Freight routes">{g?.railLines().map((l,index)=><Btn key={l.id} title={`${l.name} · ${l.segments.length===0?'New line':`${l.stops.length} stops`}`} aria-label={l.name} aria-pressed={s.tool.kind==='rail'&&s.tool.line===l.id} className={`route-swatch ${lineColorClass(index)} ${l.segments.length===0?'route-unused':''}`} onClick={()=>{s.setTool({kind:'rail',line:l.id});if(s.tutorial===TUTORIAL.route)s.setTutorial(TUTORIAL.drag);}}><span/><small>{l.id+1}</small></Btn>)}<span className="tool-divider"/><Btn title={`Build tunnel · ${g?.inv.tunnels??0} available`} aria-label="Build tunnel" disabled={!g?.inv.tunnels} variant={s.tool.kind==='crossing'&&s.tool.crossing==='tunnel'?'brass':'ghost'} onClick={()=>s.setTool({kind:'crossing',crossing:'tunnel',line:route?.id??null})}><ArtIcon kind="tunnel" size={23}/></Btn><Btn title={`Build bridge · ${g?.inv.bridges??0} available`} aria-label="Build bridge" disabled={!g?.inv.bridges} variant={s.tool.kind==='crossing'&&s.tool.crossing==='bridge'?'brass':'ghost'} onClick={()=>s.setTool({kind:'crossing',crossing:'bridge',line:route?.id??null})}><ArtIcon kind="bridge" size={23}/></Btn><Btn title={`River freight · ${g?.boats??0} boats available`} aria-label="River freight" disabled={!g?.boats} variant={s.tool.kind==='boat'?'brass':'ghost'} onClick={()=>s.setTool({kind:'boat',from:null})}><ArtIcon kind="boat" size={23}/></Btn><Btn title={`Pneumatic link · ${g?.inv.tubes??0} available`} disabled={!g?.inv.tubes} variant={s.tool.kind==='tube'?'brass':'ghost'} onClick={()=>s.setTool({kind:'tube',from:null})}><ArtIcon kind="tube" size={23}/></Btn></nav>
-   <footer className="map-footer hud" aria-label="Available inventory"><span><Waypoints size={18}/><strong>{Math.round(g?.inv.track??0).toLocaleString()}</strong> Track</span><span><ArtIcon kind="train" size={18}/><strong>{g?.inv.locomotives??0}</strong> Trains</span><span><ArtIcon kind="carriage" size={18}/><strong>{g?.inv.carriages??0}</strong> Carriages</span><span><Factory size={18}/><strong>{g?.hubsAvailable??0}</strong> Collectors</span><span><strong>{g?.inv.bridges??0}</strong> Bridges</span><span><strong>{g?.inv.tunnels??0}</strong> Tunnels</span><span><Ship size={18}/><strong>{g?.boats??0}</strong> Boats</span><span><ArtIcon kind="tube" size={18}/><strong>{g?.inv.tubes??0}</strong> Pneumatic links</span></footer>
+   <footer className="map-footer hud" aria-label="Available inventory"><span><Waypoints size={18}/><strong>{Math.round(g?.inv.track??0).toLocaleString()}</strong> Track</span><span><ArtIcon kind="train" size={18}/><strong>{g?.inv.locomotives??0}</strong> Trains</span><span><ArtIcon kind="carriage" size={18}/><strong>{g?.inv.carriages??0}</strong> Carriages</span><span><ArtIcon kind="crate" size={18}/><strong>{g?.hubsAvailable??0}</strong> Collectors</span><span><ArtIcon kind="bridge" size={18}/><strong>{g?.inv.bridges??0}</strong> Bridges</span><span><ArtIcon kind="tunnel" size={18}/><strong>{g?.inv.tunnels??0}</strong> Tunnels</span><span><ArtIcon kind="boat" size={18}/><strong>{g?.boats??0}</strong> Boats</span><span><ArtIcon kind="tube" size={18}/><strong>{g?.inv.tubes??0}</strong> Pneumatic links</span></footer>
   {selected&&g&&s.tutorial===null&&<section className="facility-detail hud reference-theme"><div className="facility-detail-heading flex items-center gap-2"><h2 className="min-w-0 flex-1">{selected.name}</h2><Btn className="shrink-0" title="Rotate building clockwise" aria-label="Rotate building clockwise" onClick={()=>s.act(gg=>gg.rotateBuilding(selected.index))}><RotateCw size={18}/></Btn><Btn className="shrink-0" title="Close facility details" onClick={()=>s.setSelected(null)}><X size={16}/></Btn></div>{(()=>{const open=!!selected.companyKind&&g.contracts.some(order=>order.company===selected.index&&order.status==='open');if(!open&&selected.companyKind==='exporter')return null;return <>{selected.companyKind&&open&&<div className="recipe-inline">{Object.entries(RECIPES[selected.companyKind].inputs).map(([k,n])=><span key={k}>{n} <GoodIcon good={k as Commodity}/></span>)}<ArrowRight size={15}/><span>{RECIPES[selected.companyKind].output?<GoodIcon good={RECIPES[selected.companyKind].output??'steel'}/>:<ArtIcon kind="crate" size={18}/>} </span></div>}<p>{g.portUsage(selected.index,'input')}/{g.portCapacity(selected,'input')} in · {g.portUsage(selected.index,'output')}/{g.portCapacity(selected,'output')} out</p><div className="flex flex-wrap gap-3">{Object.entries(selected.stock).filter(([,v])=>v>0).map(([k,v])=><span key={k}><GoodIcon good={k as Commodity}/> {v}</span>)}</div></>;})()}</section>}
    {g&&orders&&<section className="order-list hud hud-orders" aria-label="Company and export orders"><div className="orders-compact-bar"><span>{g.contracts.filter(c=>c.status==='open').length} open · {g.contractsCompleted} fulfilled</span><Btn title="Hide orders" onClick={()=>setOrders(false)}><X size={14}/></Btn></div>{g.contracts.filter(c=>c.status==='open').map(c=><Btn key={c.id} onClick={()=>s.focusFacility(c.company)} className={`order-row ${c.deadline-g.time<25?'order-urgent':''}`}><span><b className="order-number">{c.id}</b>{g.stations[c.company]?.name??'Company'}</span><span><GoodIcon good={c.good}/> <strong>{c.delivered}/{c.quantity}</strong></span><span><ArtIcon kind="clock" size={12}/>{Math.max(0,Math.ceil(c.deadline-g.time))}s</span><progress className="factory-progress" value={c.delivered} max={c.quantity}/></Btn>)}{!g.contracts.some(c=>c.status==='open')&&<p className="orders-empty">All orders cleared</p>}</section>}
    {s.tutorial!==null&&<GuidedTutorial step={s.tutorial} orders={orders} mapPoint={s.tutorialMapPoint} onStep={step=>{if(step===TUTORIAL.orders+1)setOrders(true);s.setTutorial(step);}} onClose={s.finishTutorial}/>}
