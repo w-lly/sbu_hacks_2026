@@ -1,33 +1,49 @@
-import { useEffect, useMemo, useState } from "react";
-import { Pause, Play, Volume2, VolumeX, Factory } from "lucide-react";
-import { CONFIG } from "@/game/config";
-import type { Charter, NetworkMetrics } from "@/shared/types";
-import { GOODS, RECIPES, type Commodity } from "@/shared/factory";
-import { Primer } from "./Primer";
-import { ReportModal } from "./ReportModal";
-import { Sidebar } from "./Sidebar";
-import { useGameSession } from "./useGameSession";
-import { WeekModal } from "./WeekModal";
-import { Btn } from "./ui";
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { ArrowLeft, Pause, Play, Volume2, VolumeX, Factory, Pickaxe, Trees, Fuel, TrainFront, Undo2, Trash2, Plus, HelpCircle, X, Package, Coins, Waypoints, ArrowRight, ChevronsRight, FileChartColumn, ZoomIn, ZoomOut, RotateCw, Circle, Clock, Ship, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Hammer, Boxes, Scan } from 'lucide-react';
+import { CONFIG } from '@/game/config';
+import type { Charter, NetworkMetrics } from '@/shared/types';
+import { GOODS, RECIPES, RAW_MATERIALS, type Commodity } from '@/shared/factory';
+import { Primer } from './Primer';
+import { ReportModal } from './ReportModal';
+import { useGameSession } from './useGameSession';
+import { WeekModal } from './WeekModal';
+import { Btn } from './ui';
+import { GoodIcon } from './icons';
+import { completeLevel } from '@/shared/levels';
+const icons={iron:Pickaxe,coal:Fuel,timber:Trees};
+const tutorialCopy=[['Your first supply chain','Timber means wood from trees. Select the tree icon on the left: it builds a collector, a building that gathers raw materials.'],['Place a collector','Drop the collector onto green forest ground. The circle shows the trees it can reach.'],['Connect the sawmill','A sawmill turns wood into planks. Drag the glowing collector onto the glowing sawmill; rails find their own way around buildings. Green dots send goods out; blue dots receive them.'],['First delivery','A locomotive is the engine pulling cargo. One starts automatically on new rails. Watch the glowing sawmill turn timber into planks. Gold numbers above buildings match the orders on the right.'],['Production started','Orders request crates before their timers end. Credits are money; carriages carry extra crates. Bridges cross water, tunnels cross mountains, boats follow rivers, and pneumatic links are express cargo pipes. Supplies stay visible below. Next, bring iron and coal to a steel mill.']];
 export function GameScreen({charter}:{charter:Charter}){
-  const [runKey,setRunKey]=useState(0),[primer,setPrimer]=useState(false),[report,setReport]=useState<NetworkMetrics|null>(null);
-  const seed=useMemo(()=>71267+runKey,[runKey]),s=useGameSession(charter,runKey,seed),g=s.game;
-  useEffect(()=>{setReport(null);},[runKey]);
-  useEffect(()=>{if(g?.phase==="complete"&&!report)setReport(g.metrics());},[g,s.tick,report]);
-  const hover=g&&s.hoverRef.current?g.stationAt(...s.hoverRef.current):-1,hs=g&&hover>=0?g.stations[hover]:null;
-  return <main className="flex min-h-screen flex-col gap-3 p-3 lg:flex-row">
-    {g?<Sidebar game={g} name={charter.name} tool={s.tool} setTool={s.setTool} act={s.act} message={s.message} onPrimer={()=>setPrimer(true)} onEnd={()=>{s.setPaused(true);setReport(g.metrics());}} selected={s.selected} onSelect={s.setSelected}/>:<aside className="brass-frame w-80 bg-card/70"/>}
-    <section className="relative flex min-w-0 flex-1 flex-col justify-center bg-card/40 p-3">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3"><div><p className="label-caps text-[10px] text-verdigris">Supply & Steam</p><h2 className="flex items-center gap-2 font-display text-xl text-brass"><Factory size={22}/>Brassworks Transit</h2></div><div className="flex gap-1"><Btn onClick={()=>s.setPaused(!s.paused)} title={s.paused?"Resume":"Pause"}>{s.paused?<Play size={15}/>:<Pause size={15}/>}</Btn>{[1,2,3].map(n=><Btn key={n} variant={s.speed===n?"brass":"ghost"} onClick={()=>s.setSpeed(n)}>{n}×</Btn>)}<Btn onClick={()=>s.setMuted(!s.muted)} title={s.muted?"Enable sound":"Mute sound"}>{s.muted?<VolumeX size={15}/>:<Volume2 size={15}/>}</Btn></div></header>
-      <div className="relative mx-auto w-full max-w-[1100px]">
-        <canvas aria-label="Industrial railway map" ref={s.canvasRef} onClick={s.onClick} onMouseMove={s.onMove} onMouseLeave={s.onLeave} onDragOver={s.onDragOver} onDrop={s.onDrop} style={{aspectRatio:`${CONFIG.canvas.width}/${CONFIG.canvas.height}`}} className="block w-full cursor-crosshair"/>
-        {hs&&<div className="pointer-events-none absolute left-3 top-3 max-w-64 border border-border bg-card/95 p-3 text-sm"><p className="font-display text-brass">{hs.name}</p>{hs.companyKind?<p className="mt-1 text-muted-foreground">{Object.entries(RECIPES[hs.companyKind].inputs).map(([k,n])=>`${n} ${GOODS[k as Commodity].label}`).join(" + ")} → {RECIPES[hs.companyKind].output?GOODS[RECIPES[hs.companyKind].output??"steel"].label:"Exports"}</p>:<p className="text-muted-foreground">{hs.material?GOODS[hs.material].label:""} collection hub</p>}</div>}
-        <div className="pointer-events-none absolute right-3 top-3 flex max-w-64 flex-col gap-2">{s.toasts.map(t=><div key={t.id} className="border border-brass bg-card/95 p-3 text-sm">{t.title}</div>)}</div>
-      </div>
-      <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-border pt-3"><p className="label-caps text-[10px] text-muted-foreground">{charter.geography.source}</p><p className="label-caps text-[10px] text-brass">{g?.companies.length??0} companies · {g?.hubs.length??0} hubs · {g?.resources.length??0} deposits</p></div>
-      {g&&g.phase==="picking"&&s.weekly&&!report&&<WeekModal game={g} week={s.weekly.week} feedback={s.weekly.feedback} onPick={i=>s.act(gg=>gg.pickOffer(i))}/>}
-      {g&&report&&<ReportModal game={g} metrics={report} seed={seed} onRetry={()=>setRunKey(k=>k+1)}/>}
-      {primer&&<Primer onClose={()=>setPrimer(false)}/>}
-    </section>
-  </main>;
+ const [runKey,setRunKey]=useState(0),[primer,setPrimer]=useState(false),[report,setReport]=useState<NetworkMetrics|null>(null),[orders,setOrders]=useState(true),[drawer,setDrawer]=useState({build:true,routes:true,stats:true});
+ const toggle=(k:keyof typeof drawer)=>setDrawer(d=>({...d,[k]:!d[k]}));
+ const seed=useMemo(()=>71267+runKey,[runKey]),s=useGameSession(charter,runKey,seed),g=s.game;
+ useEffect(()=>{setReport(null);},[runKey]);
+ useEffect(()=>{if(g?.phase==='complete'){completeLevel(charter.slug);if(!report)setReport(g.metrics());}},[g,s.tick,report]);
+ const selected=g&&s.selected!==null?g.stations[s.selected]:null,route=g&&s.tool.kind==='rail'?g.lines[s.tool.line]:null;
+ const tutorial=s.tutorial===null?null:tutorialCopy[s.tutorial];
+ return <main className="factory-screen">
+  <div className="map-stage"><canvas aria-label="Industrial railway map" ref={s.canvasRef} onClick={s.onClick} onPointerDown={s.onPointerDown} onPointerMove={s.onPointerMove} onPointerUp={s.onPointerUp} onPointerCancel={s.cancelTrack} onMouseLeave={s.onLeave} onDragOver={s.onDragOver} onDrop={s.onDrop} className="factory-canvas"/></div>
+  <div className="map-zoom hud"><Btn title="Zoom out" onClick={()=>s.zoomBy(1/1.3)}><ZoomOut size={18}/></Btn><Btn title="Fit map" onClick={s.fitMap}><Scan size={18}/></Btn><Btn title="Zoom in" onClick={()=>s.zoomBy(1.3)}><ZoomIn size={18}/></Btn></div>
+  <header className="map-header hud">
+   <div className="map-identity"><Link to="/" aria-label="Back to maps" title="Back to maps" className="map-back"><ArrowLeft size={19}/></Link><div><h1>Brassworks Transit</h1><p>{charter.name}</p></div></div>
+    <div className="map-counters"><span title="Credits"><Coins size={18}/><strong>{g?.credits??0}</strong></span><span title="Products"><Package size={18}/><strong>{g?.products??0}</strong></span><span className="week-counter"><Clock size={18}/><strong>Week {g?.week??1}</strong><span>{Math.max(0,Math.ceil(CONFIG.week.seconds-(g?.weekTime??0)))}s</span><progress className="factory-progress" value={g?.weekTime??0} max={CONFIG.week.seconds}/></span></div>
+   <div className="map-actions">{route&&<><span className={`route-indicator route-${route.id}`}/><Btn title="Add locomotive" disabled={route.stops.length<2||!g?.inv.locomotives} onClick={()=>s.act(gg=>gg.addTrain(route.id))}><TrainFront size={18}/><Plus size={12}/></Btn><Btn title="Add wagon" disabled={route.stops.length<2||!g?.inv.carriages} onClick={()=>s.act(gg=>gg.addCarriage(route.id))}><Package size={18}/><Plus size={12}/></Btn></>}
+<Btn title="Undo most recent action" disabled={!g?.canUndo} onClick={s.undo}><Undo2 size={18}/></Btn><Btn title="Delete selected end track" disabled={!s.selectedTrack||!g?.canRemoveSegment(s.selectedTrack.line,s.selectedTrack.segment)} onClick={s.deleteTrack}><Trash2 size={18}/></Btn><Btn title={s.paused?'Resume':'Pause'} onClick={()=>s.setPaused(!s.paused)}>{s.paused?<Play size={19}/>:<Pause size={19}/>}</Btn><Btn title="Simulation speed" onClick={()=>s.setSpeed(s.speed===3?1:s.speed+1)}>{s.speed}×</Btn><Btn title={s.muted?'Enable sound':'Mute sound'} onClick={()=>s.setMuted(!s.muted)}>{s.muted?<VolumeX size={18}/>:<Volume2 size={18}/>}</Btn><Btn title="Guided tutorial" onClick={s.startTutorial}><HelpCircle size={18}/></Btn><Btn title="Industrial report" onClick={()=>{if(g){s.setPaused(true);setReport(g.metrics());}}}><FileChartColumn size={18}/></Btn></div>
+  </header>
+  <nav className={`collector-tools hud ${drawer.build?'':'drawer-closed'}`} aria-label="Collection facilities">
+   <Btn className="drawer-toggle" title={drawer.build?'Hide build tools':'Show build tools'} onClick={()=>toggle('build')}>{drawer.build?<ChevronLeft size={16}/>:<Hammer size={18}/>}</Btn>
+   {drawer.build&&<>{RAW_MATERIALS.map(material=>{const Icon=icons[material];return <Btn key={material} title={`${GOODS[material].label} collector · ${CONFIG.factory.hubCost} credits`} aria-label={`${material} collector`} draggable disabled={g?g.hubsAvailable<1||g.credits<CONFIG.factory.hubCost:false} variant={s.tool.kind==='hub'&&s.tool.material===material?'brass':'ghost'} onClick={()=>{s.setTool({kind:'hub',material});if(s.tutorial===0&&material==='timber')s.setTutorial(1);}} onDragStart={e=>{e.dataTransfer.setData('application/brassworks-material',material);s.setTool({kind:'hub',material});if(s.tutorial===0)s.setTutorial(1);}}><Icon size={25}/></Btn>;})}
+   <span className="tool-divider"/><Btn title="Production recipes" onClick={()=>setPrimer(true)}><Factory size={24}/></Btn><Btn title="Company orders" variant={orders?'brass':'ghost'} onClick={()=>setOrders(!orders)}><Package size={24}/></Btn></>}
+  </nav>
+  <nav className={`route-tools hud ${drawer.routes?'':'drawer-closed'}`} aria-label="Freight routes"><Btn className="drawer-toggle" title={drawer.routes?'Hide routes':'Show routes'} onClick={()=>toggle('routes')}>{drawer.routes?<ChevronRight size={16}/>:<TrainFront size={18}/>}</Btn>{drawer.routes&&<>{g?.railLines().map(l=><Btn key={l.id} title={`${l.name} · ${l.stops.length} stops`} aria-label={l.name} aria-pressed={s.tool.kind==='rail'&&s.tool.line===l.id} className={`route-swatch route-${l.id}`} onClick={()=>s.setTool({kind:'rail',line:l.id})}><span/><small>{l.id+1}</small></Btn>)}<span className="tool-divider"/><Btn title={`River freight · ${g?.boats??0} boats available`} aria-label="River freight" disabled={!g?.boats} variant={s.tool.kind==='boat'?'brass':'ghost'} onClick={()=>s.setTool({kind:'boat',from:null})}><Ship size={23}/></Btn><Btn title={`Pneumatic link · ${g?.inv.tubes??0} available`} disabled={!g?.inv.tubes} variant={s.tool.kind==='tube'?'brass':'ghost'} onClick={()=>s.setTool({kind:'tube',from:null})}><Waypoints size={23}/></Btn></>}</nav>
+   <footer className="map-footer hud" aria-label="Available inventory"><span><Waypoints size={18}/><strong>{Math.round(g?.inv.track??0).toLocaleString()}</strong> Track</span><span><TrainFront size={18}/><strong>{g?.inv.locomotives??0}</strong> Trains</span><span><Package size={18}/><strong>{g?.inv.carriages??0}</strong> Carriages</span><span><Factory size={18}/><strong>{g?.hubsAvailable??0}</strong> Collectors</span><span><strong>{g?.inv.bridges??0}</strong> Bridges</span><span><strong>{g?.inv.tunnels??0}</strong> Tunnels</span><span><Ship size={18}/><strong>{g?.boats??0}</strong> Boats</span><span><Waypoints size={18}/><strong>{g?.inv.tubes??0}</strong> Pipes</span></footer>
+  {selected&&g&&s.tutorial===null&&<section className="facility-detail hud"><div className="flex items-center justify-between gap-4"><h2>{selected.name}</h2><Btn title="Close facility details" onClick={()=>s.setSelected(null)}><X size={16}/></Btn></div><Btn title="Rotate building clockwise" aria-label="Rotate building clockwise" onClick={()=>s.act(gg=>gg.rotateBuilding(selected.index))}><RotateCw size={18}/></Btn>{selected.companyKind&&<div className="recipe-inline">{Object.entries(RECIPES[selected.companyKind].inputs).map(([k,n])=><span key={k}>{n} <GoodIcon good={k as Commodity}/></span>)}<ArrowRight size={15}/><span>{RECIPES[selected.companyKind].output?<GoodIcon good={RECIPES[selected.companyKind].output??'steel'}/>:<Package size={18}/>} </span></div>}<p>{g.portUsage(selected.index,'input')}/{g.portCapacity(selected,'input')} in · {g.portUsage(selected.index,'output')}/{g.portCapacity(selected,'output')} out</p><div className="flex flex-wrap gap-3">{Object.entries(selected.stock).filter(([,v])=>v>0).map(([k,v])=><span key={k}><GoodIcon good={k as Commodity}/> {v}</span>)}</div></section>}
+   {g&&<section className={`order-list hud hud-orders ${orders?'':'orders-collapsed'}`} aria-label="Company and export orders"><div className="orders-heading"><Ship size={20}/><h2>Company orders</h2><span className="orders-count">{g.contracts.filter(c=>c.status==='open').length}</span><Btn title={orders?'Collapse orders':'Expand orders'} onClick={()=>setOrders(!orders)}>{orders?<ChevronUp size={16}/>:<ChevronDown size={16}/>}</Btn></div>{orders&&<><div className="export-summary"><Ship size={17}/><span>Export production</span><strong>{g.products}</strong><Package size={16}/></div>{g.contracts.filter(c=>c.status==='open').map(c=><Btn key={c.id} onClick={()=>s.focusFacility(c.company)} className={`order-row ${c.deadline-g.time<25?'order-urgent':''}`}><span><b className="order-number">{c.id}</b>{g.stations[c.company]?.name??'Company'}</span><span><GoodIcon good={c.good}/> <strong>{c.delivered}/{c.quantity}</strong></span><span><Clock size={14}/>{Math.max(0,Math.ceil(c.deadline-g.time))}s</span><progress className="factory-progress" value={c.delivered} max={c.quantity}/></Btn>)}{!g.contracts.some(c=>c.status==='open')&&<p className="orders-empty">All orders cleared</p>}<div className="orders-totals"><span>{g.contractsCompleted} fulfilled</span><span>{g.contractsMissed} missed</span></div></>}</section>}
+  {tutorial&&<section className="tutorial-guide hud" aria-label="Guided tutorial"><div className="flex items-center justify-between"><span className="tutorial-step">{(s.tutorial??0)+1} / 5</span><Btn title="Skip tutorial" onClick={s.finishTutorial}><X size={17}/></Btn></div><h2>{tutorial[0]}</h2><p>{tutorial[1]}</p>{s.tutorial===3&&<span className="tutorial-wait"><ChevronsRight size={17}/> Delivering timber</span>}{s.tutorial===4&&<Btn variant="brass" onClick={s.finishTutorial}>Continue playing <ArrowRight size={16}/></Btn>}</section>}
+  {s.message&&<div role="status" className="map-message hud">{s.message}<Btn title="Dismiss message" onClick={()=>s.act(()=>null,' ')}><X size={14}/></Btn></div>}
+  <div className="map-toasts">{s.toasts.map(t=><div key={t.id}>{t.title}</div>)}</div>
+  {g&&g.phase==='picking'&&s.weekly&&!report&&<WeekModal game={g} week={s.weekly.week} feedback={s.weekly.feedback} onPick={i=>s.act(gg=>gg.pickOffer(i))}/>}
+  {g&&report&&<ReportModal game={g} metrics={report} seed={seed} onRetry={()=>setRunKey(k=>k+1)}/>}
+  {primer&&<Primer onClose={()=>setPrimer(false)}/>}
+ </main>;
 }

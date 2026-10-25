@@ -1,42 +1,57 @@
-/** Factory map rendering; the only drawing layer for the active freight game. */
-import { CONFIG } from "../config";
-import type { BuildPlan, FactoryGame, FactoryNode } from "../factory";
-import { GOODS, RECIPES, type Commodity, type RawMaterial } from "@/shared/factory";
-import type { Pt } from "../projection";
-import { PALETTE as P } from "./palette";
-import { renderTerrainLayer } from "./terrainLayer";
-export interface FactoryOverlay { selectedLine: number | null; hover: Pt | null; placement: RawMaterial | null; selectedNode: number | null; tubeFrom: number | null }
-const COLORS = [P.danger, P.water, P.brass, P.resource.repair, P.resource.barracks];
+/** Continuous terrain, replaceable building artwork and compact connection dots. */
+import { CONFIG } from '../config';
+import type { FactoryGame, FactoryNode } from '../factory';
+import { GOODS, RECIPES, type RawMaterial } from '@/shared/factory';
+import { gridRoute, snapPoint } from '../grid';
+import type { Pt } from '../projection';
+import { PALETTE as P } from './palette';
+import { ICON_PATHS } from './icon-paths';
+import { BUILDING_SPRITES } from './building-sprites';
+import { ISO_INV, UP } from './iso';
+export interface FactoryOverlay { selectedLine:number|null;hover:Pt|null;placement:RawMaterial|null;selectedNode:number|null;tubeFrom:number|null;dragFrom?:number|null;draftPath?:Pt[];tutorialTarget?:number|null;tutorialSource?:number|null;selectedTrack?:{line:number;segment:number}|null }
+const colors=[P.danger,P.resource.repair,P.waterLine,P.brass,P.resource.barracks];
+const F=CONFIG.factory;
 export class FactoryRenderer {
-  private terrain: HTMLCanvasElement;
-  constructor(private ctx: CanvasRenderingContext2D, private game: FactoryGame, dpr: number) { this.terrain = renderTerrainLayer(game,CONFIG.canvas.width,CONFIG.canvas.height,dpr); }
-  draw(o: FactoryOverlay) {
-    const c=this.ctx,g=this.game;c.drawImage(this.terrain,0,0,CONFIG.canvas.width,CONFIG.canvas.height);
-    for(const r of g.resources){const [x,y]=r.pos;c.save();c.fillStyle=P.resource[r.kind==="iron"?"repair":r.kind==="timber"?"barracks":"coal"];c.strokeStyle=P.parchment;c.lineWidth=2;
-      c.beginPath();c.roundRect(x-13,y-12,26,24,3);c.fill();c.stroke();c.fillStyle=P.station;c.font="bold 11px 'Barlow Condensed'";c.textAlign="center";c.fillText(GOODS[r.kind].symbol,x,y+4);
-      c.fillStyle=P.ink;c.font="600 11px 'Barlow Condensed'";c.fillText(`${GOODS[r.kind].label} · ${r.remaining}`,x,y+26);
-      if(r.hub!==null){const hub=g.stations[r.hub];if(hub){c.strokeStyle=P.inkSoft;c.setLineDash([2,4]);c.beginPath();c.moveTo(x,y);c.lineTo(...hub.pos);c.stroke();}}c.restore();}
-    for(const l of g.lines){if(l.stops.length<2)continue;const color=COLORS[l.id%COLORS.length]??P.brass;c.save();c.lineCap="round";c.lineJoin="round";
-      for(const seg of l.segments){const a=g.stations[seg.a],b=g.stations[seg.b];if(!a||!b)continue;
-        const path=()=>{c.beginPath();c.moveTo(...a.pos);c.lineTo(...b.pos);};
-        if(o.selectedLine===l.id){c.strokeStyle=P.brass;c.globalAlpha=.35;c.lineWidth=14;path();c.stroke();c.globalAlpha=1;}
-        c.strokeStyle=P.ink;c.lineWidth=7;path();c.stroke();c.strokeStyle=color;c.lineWidth=4;if(l.type==="tube")c.setLineDash([7,4]);path();c.stroke();c.setLineDash([]);
-        if(seg.crossings.length){c.font="bold 10px 'Barlow Condensed'";c.textAlign="center";c.fillStyle=P.ink;c.fillText(seg.crossings.join(" + "),(a.pos[0]+b.pos[0])/2,(a.pos[1]+b.pos[1])/2-9);}
-      }c.restore();}
-    if(o.placement&&o.hover){const error=g.planHub(o.placement,o.hover);c.save();c.strokeStyle=error?P.danger:P.resource.repair;c.fillStyle=error?P.danger:P.water;c.globalAlpha=.15;c.beginPath();c.arc(...o.hover,CONFIG.factory.collectionRadius,0,Math.PI*2);c.fill();c.globalAlpha=1;c.setLineDash([5,4]);c.stroke();c.setLineDash([]);this.building(o.hover,true);c.restore();}
-    if(o.selectedLine!==null&&o.hover&&!o.placement){const idx=g.stationAt(...o.hover),l=g.lines[o.selectedLine];if(idx>=0&&l?.stops.length){const plan=g.planExtend(l.id,idx),from=g.stations[l.stops[l.stops.length-1]??-1],to=g.stations[idx];if(from&&to)this.ghost(from.pos,to.pos,plan);}}
-    for(const s of g.stations)this.node(s,o);
-    for(const l of g.lines)for(const t of l.trains){const {x,y,ang}=g.trainPos(l,t);c.save();c.translate(x,y);c.rotate(ang);c.fillStyle=P.ink;c.fillRect(-12,-6,24+l.carriages*5,12);c.fillStyle=COLORS[l.id%COLORS.length]??P.brass;c.fillRect(-9,-4,18+l.carriages*5,8);c.fillStyle=P.station;for(let i=0;i<t.cargo.length;i++)c.fillRect(-7+i*3,-2,2,4);c.restore();}
-  }
-  private building(pos:Pt,hub:boolean){const c=this.ctx,[x,y]=pos;c.beginPath();c.rect(x-15,y-9,30,23);if(!hub){c.rect(x+6,y-24,6,15);c.moveTo(x-15,y-9);c.lineTo(x-5,y-18);c.lineTo(x-5,y-9);c.lineTo(x+5,y-18);c.lineTo(x+5,y-9);}c.fillStyle=hub?P.resource.repair:P.ink;c.fill();c.strokeStyle=P.station;c.lineWidth=1.5;c.stroke();c.fillStyle=P.brass;for(let i=0;i<3;i++)c.fillRect(x-10+i*9,y-3,5,5);}
-  private node(s:FactoryNode,o:FactoryOverlay){const c=this.ctx,[x,y]=s.pos;c.save();if(s.index===o.selectedNode||s.index===o.tubeFrom){c.strokeStyle=P.brass;c.lineWidth=3;c.strokeRect(x-21,y-29,42,49);}
-    if(s.type==="hub"&&s.index===o.selectedNode){c.strokeStyle=P.inkSoft;c.setLineDash([4,4]);c.beginPath();c.arc(x,y,CONFIG.factory.collectionRadius,0,Math.PI*2);c.stroke();c.setLineDash([]);}
-    this.building(s.pos,s.type==="hub");c.textAlign="center";c.font="600 12px 'Barlow Condensed'";
-    const title=s.type==="hub"?s.name:s.realName;const width=c.measureText(title).width+8;c.fillStyle=P.parchment;c.fillRect(x-width/2,y+18,width,16);c.fillStyle=P.ink;c.fillText(title,x,y+30);
-    const recipe=s.companyKind?RECIPES[s.companyKind]:null;
-    c.font="600 10px 'Barlow Condensed'";const label=recipe?`${recipe.label} · ${s.working?"PRODUCING":"AWAITING INPUT"}`:`${s.material?GOODS[s.material].label:""} · ${Object.values(s.stock).reduce((a,b)=>a+b,0)} crates`;
-    c.fillStyle=s.working?P.resource.repair:P.ink;c.fillText(label,x,y+43);
-    if(recipe){let i=0;for(const good of Object.keys(recipe.inputs) as Commodity[]){c.fillStyle=s.stock[good]>0?P.resource.repair:P.danger;c.fillRect(x-15+i*15,y-34,12,4);i++;}}
-    c.restore();}
-  private ghost(a:Pt,b:Pt,p:BuildPlan){const c=this.ctx;c.save();c.strokeStyle=p.ok?P.brass:P.danger;c.lineWidth=4;c.setLineDash([6,4]);c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke();c.setLineDash([]);c.font="600 12px 'Barlow Condensed'";c.textAlign="center";const label=p.ok?`${p.cost??0} rails${p.crossings?.length?" · "+p.crossings.join(" + "):""}`:p.error??"";const x=(a[0]+b[0])/2,y=(a[1]+b[1])/2,w=c.measureText(label).width+12;c.fillStyle=P.outside;c.fillRect(x-w/2,y+8,w,20);c.fillStyle=P.station;c.fillText(label,x,y+22);c.restore();}
+ private terrain:HTMLCanvasElement;
+ private sprites:Record<string,HTMLImageElement> = {};
+ constructor(private ctx:CanvasRenderingContext2D,private game:FactoryGame,dpr:number){
+   for(const [kind,url] of Object.entries(BUILDING_SPRITES)){const image=new Image();image.src=url;this.sprites[kind]=image;}
+  this.terrain=document.createElement('canvas');const S=.5;this.terrain.width=F.worldWidth*S;this.terrain.height=F.worldHeight*S;
+  const c=this.terrain.getContext('2d');if(!c)return;c.scale(S,S);const css=(v:string)=>getComputedStyle(document.documentElement).getPropertyValue(v.slice(4,-1)).trim();
+  c.fillStyle=css(P.biomes.meadow);c.fillRect(0,0,F.worldWidth,F.worldHeight);
+  const ring=(r:Pt[],dx=0,dy=0)=>{c.beginPath();r.forEach(([x,y],i)=>i?c.lineTo(x+dx,y+dy):c.moveTo(x+dx,y+dy));c.closePath();};
+  for(const tile of game.world.tiles.filter(t=>t.biome==='forest')){ring(tile.ring);c.fillStyle=css(P.biomes.forest);c.fill();}
+  for(const tile of game.world.tiles.filter(t=>t.biome==='water')){ring(tile.ring);c.fillStyle=css(P.biomes.water);c.fill();c.strokeStyle=P.waterEdge;c.lineWidth=6;c.stroke();}
+  // Hills are extruded upward in screen space so the 2.5D view reads as raised ground.
+  const hills=game.world.tiles.filter(t=>t.biome==='hills');
+  for(const tile of hills){ring(tile.ring);c.fillStyle=P.hillShadow;c.fill();}
+  for(let layer=1;layer<=4;layer++)for(const tile of hills){ring(tile.ring,UP[0]*layer*5,UP[1]*layer*5);c.fillStyle=layer===4?css(P.biomes.hills):P.hillSide;c.fill();}
+  for(const tile of hills){ring(tile.ring,UP[0]*20,UP[1]*20);c.strokeStyle=P.hillRim;c.lineWidth=3;c.stroke();}
+  // Upright tree billboards on forest ground.
+  let n=0;for(let y=30;y<F.worldHeight;y+=40)for(let x=30;x<F.worldWidth;x+=40){n++;const jx=x+((n*73)%31)-15,jy=y+((n*47)%29)-14;if(!game.world.isForest(jx,jy)||game.world.isWater(jx,jy)||game.world.isMountain(jx,jy))continue;c.save();c.translate(jx,jy);c.transform(...ISO_INV);c.fillStyle=P.shadow;c.beginPath();c.ellipse(0,0,10,4,0,0,Math.PI*2);c.fill();c.fillStyle=P.treeDark;c.beginPath();c.moveTo(0,-30);c.lineTo(-10,-4);c.lineTo(10,-4);c.closePath();c.fill();c.fillStyle=P.treeLight;c.beginPath();c.moveTo(0,-30);c.lineTo(-10,-4);c.lineTo(0,-4);c.closePath();c.fill();c.restore();}
+ }
+ private terrainIcon(c:CanvasRenderingContext2D,p:Pt,kind:'tree'|'mountain'|'waves'){c.save();c.translate(...p);c.strokeStyle=P.inkSoft;c.lineWidth=2;c.lineJoin='round';c.beginPath();if(kind==='tree'){c.moveTo(0,-14);c.lineTo(-10,5);c.lineTo(10,5);c.closePath();c.moveTo(0,5);c.lineTo(0,13);}else if(kind==='mountain'){c.moveTo(-26,12);c.lineTo(-7,-20);c.lineTo(18,12);c.moveTo(1,-8);c.lineTo(11,-22);c.lineTo(31,12);c.moveTo(-14,-9);c.lineTo(-6,-4);c.lineTo(1,-9);}else {for(let y=-7;y<=7;y+=14){c.moveTo(-24,y);c.bezierCurveTo(-16,y-8,-8,y+8,0,y);c.bezierCurveTo(8,y-8,16,y+8,24,y);}}c.stroke();c.restore();}
+ private path(points:Pt[]){const c=this.ctx;c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));}
+ private icon(p:Pt,kind:string,size:number){const c=this.ctx,parts=ICON_PATHS[kind as keyof typeof ICON_PATHS];if(!parts)return;c.save();c.translate(p[0]-size/2,p[1]-size/2);c.scale(size/24,size/24);c.lineWidth=1.7;c.lineCap='round';c.lineJoin='round';c.strokeStyle=P.ink;for(const [tag,a] of parts){const attrs=a as unknown as Record<string,string|number>;c.beginPath();if(tag==='path')c.stroke(new Path2D(String(attrs['d'])));else if(tag==='circle'){c.arc(Number(attrs['cx']),Number(attrs['cy']),Number(attrs['r']),0,Math.PI*2);c.stroke();}else if(tag==='rect'){c.roundRect(Number(attrs['x']),Number(attrs['y']),Number(attrs['width']),Number(attrs['height']),Number(attrs['rx']??0));c.stroke();}else if(tag==='line'){c.moveTo(Number(attrs['x1']),Number(attrs['y1']));c.lineTo(Number(attrs['x2']),Number(attrs['y2']));c.stroke();}else if(tag==='polyline'||tag==='polygon'){String(attrs['points']).split(' ').forEach((s,i)=>{const [x,y]=s.split(',').map(Number);if(x!==undefined&&y!==undefined)i?c.lineTo(x,y):c.moveTo(x,y);});if(tag==='polygon')c.closePath();c.stroke();}}c.restore();}
+ draw(o:FactoryOverlay){
+  const c=this.ctx,g=this.game;c.drawImage(this.terrain,0,0,F.worldWidth,F.worldHeight);
+  for(const r of g.resources){if(r.forest)continue;c.save();c.globalAlpha=r.remaining>0?1:.35;c.fillStyle=getComputedStyle(document.documentElement).getPropertyValue(P.deposits[r.kind].slice(4,-1)).trim();c.beginPath();for(let i=0;i<=24;i++){const a=i/24*Math.PI*2,radius=60+9*Math.sin(a*3+r.id)+7*Math.cos(a*5+r.id);const x=r.pos[0]+Math.cos(a)*radius,y=r.pos[1]+Math.sin(a)*radius;i?c.lineTo(x,y):c.moveTo(x,y);}c.closePath();c.fill();c.restore();}
+  const fr=g.frontier;c.save();c.beginPath();c.rect(0,0,F.worldWidth,F.worldHeight);c.arc(fr.center[0],fr.center[1],fr.radius,0,Math.PI*2,true);c.fillStyle=P.fog;c.fill('evenodd');c.beginPath();c.arc(fr.center[0],fr.center[1],fr.radius,0,Math.PI*2);c.setLineDash([18,12]);c.strokeStyle=P.frontier;c.lineWidth=4;c.stroke();c.restore();
+  if(o.placement||o.dragFrom!==null&&o.dragFrom!==undefined){c.strokeStyle=P.grid;c.lineWidth=1.4;c.beginPath();for(let x=0;x<F.worldWidth;x+=F.grid){c.moveTo(x,0);c.lineTo(x,F.worldHeight);}for(let y=0;y<F.worldHeight;y+=F.grid){c.moveTo(0,y);c.lineTo(F.worldWidth,y);}c.stroke();}
+  for(const l of g.lines){c.save();c.lineJoin='round';c.lineCap='round';for(const [segIndex,seg] of l.segments.entries()){const a=g.stations[seg.a],b=g.stations[seg.b];if(!a||!b)continue;const path=seg.path??gridRoute(a.pos,b.pos,l.id);if(o.selectedTrack?.line===l.id&&o.selectedTrack.segment===segIndex){this.path(path);c.strokeStyle=P.brass;c.lineWidth=16;c.stroke();}this.path(path);c.strokeStyle=P.station;c.lineWidth=o.selectedLine===l.id?11:8;c.stroke();this.path(path);c.strokeStyle=colors[l.id%5]??P.ink;c.lineWidth=o.selectedLine===l.id?5:4;if(l.type==='tube'||l.type==='boat')c.setLineDash([5,5]);c.stroke();c.setLineDash([]);if(l.type==='boat'&&seg.waterPath){for(const dock of [seg.waterPath[0],seg.waterPath.at(-1)]){if(!dock)continue;c.fillStyle=P.station;c.strokeStyle=P.ink;c.lineWidth=2;c.beginPath();c.roundRect(dock[0]-12,dock[1]-8,24,16,2);c.fill();c.stroke();}}}c.restore();}
+  if(o.placement&&o.hover){const p=snapPoint(o.hover),error=g.planHub(o.placement,p);c.save();c.strokeStyle=error?P.danger:P.output;c.globalAlpha=.5;c.setLineDash([4,4]);c.beginPath();c.arc(...p,F.collectionRadius,0,Math.PI*2);c.stroke();c.restore();this.building(p,o.placement);}
+  if(o.draftPath?.length){c.save();c.strokeStyle=colors[(o.selectedLine??0)%5]??P.ink;c.lineWidth=4;this.path(o.draftPath);c.stroke();c.restore();}
+  for(const s of g.stations)this.node(s,o);
+  for(const l of g.lines)for(const t of l.trains){const p=g.trainPos(l,t),col=colors[l.id%5]??P.ink,len=18+l.carriages*4,shape=(dx:number,dy:number)=>{c.save();c.translate(p.x+dx,p.y+dy);c.rotate(p.ang);c.beginPath();if(l.type==='boat'){c.moveTo(-12,-7);c.lineTo(12,-7);c.lineTo(16,0);c.lineTo(12,7);c.lineTo(-12,7);c.closePath();}else c.roundRect(-9,-5,len,10,3);c.restore();};
+   shape(-UP[0]*2,-UP[1]*2);c.fillStyle=P.shadow;c.fill();
+   for(let h=1;h<=7;h++){shape(UP[0]*h,UP[1]*h);c.fillStyle=h===7?col:P.trainSide;c.fill();}
+   shape(UP[0]*7,UP[1]*7);c.strokeStyle=P.station;c.lineWidth=1.5;c.stroke();}
+  if(o.hover&&!o.placement&&!o.draftPath?.length){const idx=g.stationAt(...o.hover),node=g.stations[idx],port=g.portAt(o.hover,'input')??g.portAt(o.hover,'output'),r=g.resources.find(r=>Math.abs(r.pos[0]-(o.hover?.[0]??0))<60&&Math.abs(r.pos[1]-(o.hover?.[1]??0))<60);let label=node?.name??(r?GOODS[r.kind].label:'');if(port){const side=g.portAt(o.hover,'input')?'input':'output';label=`${side==='input'?'Input':'Output'} · ${g.stations[port.index]?.name}`;}if(label){const [hx,hy]=o.hover;c.save();c.translate(hx,hy);c.transform(...ISO_INV);const x=0,y=0;c.font='600 16px Arial';const w=c.measureText(label).width+24;c.fillStyle=P.station;c.strokeStyle=P.inkSoft;c.beginPath();c.roundRect((x+16),(y-60),w,32,6);c.fill();c.stroke();c.fillStyle=P.ink;c.textAlign='left';c.fillText(label,(x+16)+12,(y-60)+21);c.restore();}}
+ }
+  private building(p:Pt,kind:string,_rotation=0){const c=this.ctx,image=this.sprites[kind],h=F.buildingHalfWidth;c.save();c.translate(...p);c.transform(...ISO_INV);c.fillStyle=P.shadow;c.beginPath();c.ellipse(0,h*.35,h*1.05,h*.42,0,0,Math.PI*2);c.fill();if(image?.complete&&image.naturalWidth>0)c.drawImage(image,-h*1.1,-h*1.55,h*2.2,h*2.2);else this.icon([0,-h*.4],kind,40);c.restore();}
+  private node(s:FactoryNode,o:FactoryOverlay){const c=this.ctx,g=this.game,[x,y]=s.pos;c.save();if(s.index===o.selectedNode||s.index===o.tutorialTarget||s.index===o.tutorialSource){c.strokeStyle=P.output;c.lineWidth=3;c.setLineDash([5,5]);c.strokeRect(x-56,y-56,112,112);c.setLineDash([]);}if(o.draftPath?.length&&o.hover){const snap=g.portAt(o.hover,'input');if(snap?.index===s.index){const p=g.portPosition(s.index,'input',snap.slot);c.beginPath();c.arc(...p,17,0,Math.PI*2);c.strokeStyle=P.input;c.lineWidth=3;c.stroke();}}const orders=g.contracts.filter(order=>order.company===s.index&&order.status==='open');if(orders.length){c.save();c.strokeStyle=P.brass;c.shadowColor=P.brass;c.shadowBlur=18;c.lineWidth=5;c.beginPath();c.ellipse(x,y,66,60,0,0,Math.PI*2);c.stroke();c.restore();}this.building(s.pos,s.companyKind??s.material??'iron',s.rotation??0);
+   if(orders.length||s.index===o.selectedNode||s.index===o.tutorialTarget||s.index===o.tutorialSource){c.save();c.translate(x,y);c.transform(...ISO_INV);c.font='bold 15px Arial';c.textAlign='center';const label=orders.length?`#${orders.map(order=>order.id).join(' · #')}  ${s.name}`:s.name,w=c.measureText(label).width+20;c.fillStyle=P.station;c.strokeStyle=orders.length?P.brass:P.output;c.lineWidth=2;c.beginPath();c.roundRect(-w/2,-100,w,26,4);c.fill();c.stroke();c.fillStyle=P.ink;c.fillText(label,0,-82);if(s.index===o.tutorialTarget||s.index===o.tutorialSource){c.fillStyle=P.output;c.beginPath();c.moveTo(0,-48);c.lineTo(-9,-64);c.lineTo(9,-64);c.closePath();c.fill();}c.restore();}
+  for(const side of ['input','output'] as const)for(let i=0;i<g.portCapacity(s,side);i++){const [px,py]=g.portPosition(s.index,side,i),occupied=g.portOccupied(s.index,side,i),color=side==='input'?P.input:P.output;c.beginPath();c.arc(px,py,9,0,Math.PI*2);c.fillStyle=P.station;c.fill();c.strokeStyle=color;c.lineWidth=3;c.stroke();c.beginPath();c.arc(px,py,occupied?6:4,0,Math.PI*2);c.fillStyle=color;c.fill();}
+  if(s.companyKind){c.fillStyle=P.inkSoft;c.fillRect(x-30,y+32,60,4);c.fillStyle=s.working?P.output:P.danger;c.fillRect(x-30,y+32,s.working?60*s.progress/CONFIG.factory.productionSeconds:5,4);}c.restore();
+ }
 }

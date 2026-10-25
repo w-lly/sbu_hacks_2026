@@ -1,0 +1,3 @@
+[{"capability":"code","source":"archive","outcome":"migrate","status":"verified","next_action":"none"},
+{"capability":"schema/records/auth","source":"none detected","outcome":"n/a","status":"verified","next_action":"none"},
+{"capability":"ai","source":"Lovable AI Gateway","outcome":"preserve","status":"pending","next_action":"verify in preview"}]

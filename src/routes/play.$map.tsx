@@ -1,20 +1,22 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { z } from "zod";
 import { GameScreen } from "@/components/game/GameScreen";
-import { getCharter } from "@/backend/functions/charters.functions";
+import { useEffect, useState } from "react";
+import { levelUnlocked, readCompleted, LEVEL_NAMES } from "@/shared/levels";
+import { localCharter } from "@/shared/local-charters";
 
 export const Route = createFileRoute("/play/$map")({
   validateSearch: z.object({ ai: z.boolean().optional() }),
   loaderDeps: ({ search }) => ({ ai: search.ai ?? false }),
   loader: async ({ params, deps }) => {
-    const charter = await getCharter({ data: { slug: params.map, ai: deps.ai } });
+    const charter = localCharter(params.map);
     if (!charter) throw notFound();
     return charter;
   },
   head: ({ loaderData }) => ({
     meta: [
       { title: `${loaderData?.name ?? "Survey"} — Brassworks Transit` },
-      { name: "description", content: `Build an industrial freight network across the real ground of ${loaderData?.name ?? "the city"}.` },
+      { name: "description", content: `Build an industrial freight network in the generated world of ${loaderData?.name ?? "the city"}.` },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:title", content: `${loaderData?.name ?? "Survey"} — Brassworks Transit` },
@@ -23,7 +25,7 @@ export const Route = createFileRoute("/play/$map")({
   }),
   pendingComponent: () => (
     <div className="flex min-h-screen items-center justify-center">
-      <p className="font-display animate-pulse text-2xl text-brass">Surveying the ground…</p>
+      <p className="font-display animate-pulse text-2xl text-brass">Opening map…</p>
     </div>
   ),
   notFoundComponent: () => (
@@ -38,5 +40,8 @@ export const Route = createFileRoute("/play/$map")({
 
 function Play() {
   const charter = Route.useLoaderData();
+  const [unlocked,setUnlocked]=useState(false);
+  useEffect(()=>setUnlocked(levelUnlocked(charter.slug,readCompleted())),[charter.slug]);
+  if(!unlocked)return <main className="flex min-h-screen flex-col items-center justify-center gap-4"><h1 className="font-display text-3xl">{LEVEL_NAMES[charter.slug]} is locked</h1><Link to="/" className="btn-brass">Back to levels</Link></main>;
   return <GameScreen key={charter.slug + charter.scenario.source} charter={charter} />;
 }

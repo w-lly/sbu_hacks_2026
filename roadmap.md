@@ -1,5 +1,40 @@
 # Roadmap
 
+- [x] Automatic shortest drag connections for rails, boats and pneumatic links
+- [x] Reliable stocked orders, unique building names and numbered map highlights
+- [x] Double base speed, Escape, action undo and endpoint track deletion
+- [x] Permanent inventory and combined top controls
+- [x] Larger obstacles and clearer targeted tutorial
+- [x] Regression tests and live gameplay verification
+
+- [x] Curved Apple Maps-inspired world, colored resources and expanded spacing
+- [x] Pan/zoom navigation and forgiving port snapping
+- [x] Weekly bridge, tunnel and boat unlocks with terrain-gated freight
+- [x] Test terrain/crossing rules and verify collection, routing and navigation
+
+- [x] Restore visible tutorial and persistent company/export orders, time and inventory
+- [x] Replace hex terrain with blue/green/gray color grids
+- [x] Generate replaceable same-size building PNGs and verify gameplay
+
+- [x] Replace square resource overlays with integrated terrain/resource hexes
+- [x] Fill screen with map behind controls; verify drawing and production
+
+- [x] Seeded Catan-style worlds with 5×5 resource patches and spacious factory placement
+- [x] Larger icon buildings, compact colored ports, hover names and rotation
+- [x] Branch routes from connected buildings and verify freight delivery
+- [x] Lock later levels until previous completion; verify world and progression rules
+
+- [x] Clear colored input/output arrows and selectable ports
+- [x] Cell-by-cell track drawing with collision-safe routing and separated factory spawns
+- [x] Readable event text spacing
+- [x] Verify track drawing, collisions and production in tests and live UI
+
+- [x] Replace active map loading with lightweight bundled New York geography
+- [x] Fullscreen minimalist map with compact controls and larger factories
+- [x] Grid-snapped drag routes, limited visible input/output ports, distinct parallel connections
+- [x] Guided first-game tutorial with paused action steps
+- [x] Test connection limits and routing, verify guided production and desktop/mobile layouts
+
 - [x] Replace passenger gameplay with seeded deposits, draggable collection hubs, freight routing and pre-spawned production companies
 - [x] Add continuous company demand, timed contracts and factory-focused weekly upgrades/reports
 - [x] Update map presentation, charter copy and game guide for the factory direction

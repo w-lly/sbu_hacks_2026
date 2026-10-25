@@ -1,32 +1,251 @@
-# Logs
-logs
+
+# ==========================================
+# Logs and debugging
+# ==========================================
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+*.stackdump
 
-node_modules
-dist
-dist-ssr
-.output
-.vinxi
-.tanstack/**
-.nitro
+# ==========================================
+# Environment variables and secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+!.env.template
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 *.local
 
-# Wrangler / Cloudflare
+# ==========================================
+# Node.js / JavaScript / TypeScript
+# ==========================================
+node_modules/
+jspm_packages/
+.npm/
+.pnpm-store/
+.yarn/*
+!.yarn/patches/
+!.yarn/plugins/
+!.yarn/releases/
+!.yarn/sdks/
+!.yarn/versions/
+
+# Package manager / dependency caches
+.npmrc.local
+.npmrc.*.local
+
+# Build output
+dist/
+dist-ssr/
+build/
+out/
+.output/
+.vinxi/
+.tanstack/
+.nitro/
+.next/
+.nuxt/
+.svelte-kit/
+.vercel/
+.netlify/
+.parcel-cache/
+.turbo/
+.rspack-cache/
+.webpack/
+*.tsbuildinfo
+
+# ==========================================
+# React / frontend frameworks
+# ==========================================
+coverage/
+.storybook-out/
+*.snap
+
+# Vite
+vite.config.*.timestamp-*
+
+# React Native / Expo (if applicable)
+.expo/
+.expo-shared/
+web-build/
+
+# ==========================================
+# Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Python packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+wheels/
+share/python-wheels/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Python environments
+.venv/
+venv/
+env/
+ENV/
+.python-version.local
+
+# Python package / dependency managers
+pip-wheel-metadata/
+Pipfile.lock.local
+poetry.toml
+.pdm-python
+.pdm-build/
+.rye/
+.uv/
+__pypackages__/
+
+# Python testing and coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+nosetests.xml
+junit.xml
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+hypothesis/
+
+# Jupyter
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# ==========================================
+# Databases and local data
+# ==========================================
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# Keep database migrations tracked.
+# Keep intentional seed data tracked.
+# Ignore only local database files and generated data.
+
+# ==========================================
+# Web game assets and generated files
+# ==========================================
+# Generated builds and exports
+game-build/
+game-dist/
+export/
+exports/
+generated/
+*.wasm.map
+
+# Game engine outputs (if applicable)
+# Godot
+.godot/
+.import/
+
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# Unreal Engine
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# ==========================================
+# Browser automation / end-to-end testing
+# ==========================================
+playwright-report/
+test-results/
+blob-report/
+cypress/videos/
+cypress/screenshots/
+
+# ==========================================
+# Cloudflare / deployment
+# ==========================================
 .wrangler/
 .dev.vars
 
+# ==========================================
 # Editor directories and files
+# ==========================================
 .vscode/*
 !.vscode/extensions.json
-.idea
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+.idea/
+*.iml
 .DS_Store
+Thumbs.db
+Desktop.ini
+
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.code-workspace
+
+# ==========================================
+# OS-generated files
+# ==========================================
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# ==========================================
+# Temporary files
+# ==========================================
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# ==========================================
+# Local development certificates and keys
+# ==========================================
+*.pem
+*.key
+*.p12
+*.pfx
