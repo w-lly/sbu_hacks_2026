@@ -2,9 +2,9 @@
 import foundry from '@/assets/building-foundry.png';
 import sawmill from '@/assets/building-sawmill.png';
 import works from '@/assets/building-works.png';
-import exporter from '@/assets/supplied-shipping_depot.png.asset.json';
-import iron from '@/assets/supplied-iron_collector.png.asset.json';
-import coal from '@/assets/supplied-coal_collector.png.asset.json';
-import timber from '@/assets/supplied-wood_collector.png.asset.json';
+import exporter from '@/assets/supplied-shipping_depot.png';
+import iron from '@/assets/supplied-iron_collector.png';
+import coal from '@/assets/supplied-coal_collector.png';
+import timber from '@/assets/supplied-wood_collector.png';
 import transfer from '@/assets/building-transfer.png';
-export const BUILDING_SPRITES: Record<string,string> = {foundry,sawmill,works,exporter:exporter.url,iron:iron.url,coal:coal.url,timber:timber.url,transfer};
+export const BUILDING_SPRITES: Record<string,string> = {foundry,sawmill,works,exporter:exporter,iron:iron,coal:coal,timber:timber,transfer};

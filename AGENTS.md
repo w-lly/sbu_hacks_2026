@@ -11,6 +11,10 @@
 
 # Architecture rules
 
+- Import downloaded media and fonts from src/assets; CDN pointers are provenance only. Why: no platform image-host dependency.
+- Vite uses standard TanStack Start, React, Tailwind, tsconfig-paths and Nitro plugins. Why: independent builds preserve Worker output.
+- AI reports call Gemini directly when configured and otherwise use existing cached/rule-based feedback. Why: reports and gameplay remain available without platform services.
+
 - Uploaded HUD and rolling-stock artwork is mapped in render/steam-art.ts and consumed only by presentation code. Why: reskins never change simulation geometry or behavior.
 - Rolling-stock poses are sampled by render/train-poses.ts along stored rail paths with shared coupling points and isometric tangents. Why: carriages follow bends and face travel without changing simulation progress.
 - Rolling stock renders on an isolated viewport layer masked by the cached mountain silhouettes. Why: partial occlusion preserves buildings and dotted tunnel overlays.

@@ -1,15 +1,29 @@
-// @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
-// or the app will break with duplicate plugins:
-//   - TanStack devtools (dev-only, first), tanstackStart, viteReact, tailwindcss, tsConfigPaths,
-//     nitro (build-only using cloudflare as a default target), VITE_* env injection, @ path alias,
-//     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
-// You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import tailwindcss from "@tailwindcss/vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import react from "@vitejs/plugin-react";
+import { nitro } from "nitro/vite";
+import { defineConfig, loadEnv } from "vite";
+import tsconfigPaths from "vite-tsconfig-paths";
 
-export default defineConfig({
-  tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
-  },
+export default defineConfig(({ command, mode }) => {
+  // Load private settings for development without exposing them to the browser.
+  if (command === "serve") {
+    const env = loadEnv(mode, process.cwd(), "GEMINI_");
+    for (const [key, value] of Object.entries(env)) process.env[key] ??= value;
+  }
+  return {
+    server: { host: "0.0.0.0", port: 8080, strictPort: true },
+    resolve: { dedupe: ["react", "react-dom", "@tanstack/react-router"] },
+    plugins: [
+      tsconfigPaths(),
+      tailwindcss(),
+      tanstackStart({ server: { entry: "server" } }),
+      react(),
+      ...(command === "build" ? [nitro({
+        preset: "cloudflare-module",
+        output: { dir: "dist", publicDir: "dist/client", serverDir: "dist/server" },
+        cloudflare: { nodeCompat: true },
+      })] : []),
+    ],
+  };
 });

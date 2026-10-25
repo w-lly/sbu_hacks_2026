@@ -1,5 +1,11 @@
 # Roadmap
 
+- [x] Store every hosted image and external font locally and switch application references
+- [x] Remove platform-specific runtime dependencies, telemetry and links; keep direct Gemini and offline reports
+- [x] Verify local images, gameplay, report fallback and portability tests
+
+- [x] Diagnose and fix CDN artwork loading with local npm run dev; verify images and regressions
+
 - [x] Align locomotive and trailing carriages along actual rails through turns and reversals
 - [x] Derive missing directional artwork from supplied train images; verify movement and regression tests
 
@@ -102,4 +108,4 @@
 ## 2026-10-25 polish
 - [x] Tutorial highlights items only (no circles/arrows); basic supply-chain flow first (collector → place → route → drag → delivery)
 - [x] Mountains render twice as tall
-- [x] Optional GEMINI_API_KEY for the Chief Engineer report, with automatic fallback to Lovable AI (.env.example added)
+- [x] Optional GEMINI_API_KEY for the Chief Engineer report, with rule-based fallback

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import { LEVELS, levelUnlocked, readCompleted } from "@/shared/levels";
 import { localCharters } from "@/shared/local-charters";
-import airship from '@/assets/charter-airship.png.asset.json';
+import airship from '@/assets/charter-airship.png';
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -32,7 +32,7 @@ function Index() {
   const [completed,setCompleted]=useState<string[]>([]);useEffect(()=>setCompleted(readCompleted()),[]);
   return (
     <main className="reference-theme charter-front brass-frame relative m-3 min-h-[calc(100vh-1.5rem)] overflow-hidden">
-      <img src={airship.url} className="charter-clockwork" alt="" aria-hidden="true"/>
+      <img src={airship} className="charter-clockwork" alt="" aria-hidden="true"/>
 
       <div className="relative mx-auto grid max-w-6xl gap-12 px-8 py-16 lg:grid-cols-2 lg:items-center">
         <section>
