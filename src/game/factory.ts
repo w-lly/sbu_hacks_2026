@@ -72,7 +72,7 @@ export class FactoryGame {
       const index=this.stations.length, kind=kinds[(this.companies.length)%kinds.length] ?? "foundry";
       let spot: Pt | null = null;
       for (let attempt=0;attempt<80&&!spot;attempt++) { const a=this.rng.next()*Math.PI*2, r=inner+(f.radius-inner)*(.25+.5*this.rng.next()); const q=snapPoint([f.center[0]+Math.cos(a)*r,f.center[1]+Math.sin(a)*r]);
-        if (this.terrain.inBounds(q[0]-F.portReach,q[1]-F.portReach)&&this.terrain.inBounds(q[0]+F.portReach,q[1]+F.portReach)&&this.facilityGround(q)&&!this.stations.some(s=>Math.abs(s.pos[0]-q[0])<F.companySpacing&&Math.abs(s.pos[1]-q[1])<F.companySpacing)&&!this.lines.some(l=>l.segments.some(seg=>(seg.path??[]).some(p=>Math.abs(p[0]-q[0])<F.companySpacing/2&&Math.abs(p[1]-q[1])<F.companySpacing/2)))) spot=q; }
+        if (this.terrain.inBounds(q[0]-F.portReach,q[1]-F.portReach)&&this.terrain.inBounds(q[0]+F.portReach,q[1]+F.portReach)&&this.inFrontier(q,F.buildingHalfWidth)&&this.facilityGround(q)&&!this.stations.some(s=>Math.abs(s.pos[0]-q[0])<F.companySpacing&&Math.abs(s.pos[1]-q[1])<F.companySpacing)&&!this.lines.some(l=>l.segments.some(seg=>(seg.path??[]).some(p=>Math.abs(p[0]-q[0])<F.companySpacing/2&&Math.abs(p[1]-q[1])<F.companySpacing/2)))) spot=q; }
       if (!spot) continue;
       const node: FactoryNode = { index, name: `${RECIPES[kind].label} ${this.companies.filter(c=>c.companyKind===kind).length+1}`, realName: RECIPES[kind].label, pos: spot, type: "company", companyKind: kind, stock: emptyStock(), progress: 0, produced: 0, working: false, collection: 0 };
       this.stations.push(node);
@@ -83,12 +83,14 @@ export class FactoryGame {
   /** Nearest forest point within collection range, if any. */
   forestNear(p: Pt): Pt | null { let best: Pt | null = null, d = Infinity; for (let dy = -F.collectionRadius; dy <= F.collectionRadius; dy += F.grid) for (let dx = -F.collectionRadius; dx <= F.collectionRadius; dx += F.grid) { const q: Pt = [p[0]+dx, p[1]+dy], h = Math.hypot(dx, dy); if (h <= F.collectionRadius && h < d && this.world.isForest(...q) && !this.world.isWater(...q) && !this.world.isMountain(...q)) { best = q; d = h; } } return best; }
   private gridLand(p: Pt): Pt {
-    const base=snapPoint(this.terrain.nearestLand(p));
-    for(let radius=0;radius<Math.ceil(F.worldWidth/F.grid);radius++) for(let x=-radius;x<=radius;x++) for(let y=-radius;y<=radius;y++) {
-      const q:Pt=[base[0]+x*F.grid,base[1]+y*F.grid];
-      if(this.terrain.inBounds(q[0]-F.portReach,q[1]-F.portReach)&&this.terrain.inBounds(q[0]+F.portReach,q[1]+F.portReach)&&this.facilityGround(q)&&!this.stations.some(s=>Math.abs(s.pos[0]-q[0])<F.companySpacing&&Math.abs(s.pos[1]-q[1])<F.companySpacing))return q;
-    }
-    return base;
+    const seek=(origin:Pt):Pt|null=>{const base=snapPoint(this.terrain.nearestLand(origin));
+      for(let radius=0;radius<Math.ceil(F.worldWidth/F.grid);radius++) for(let x=-radius;x<=radius;x++) for(let y=-radius;y<=radius;y++) {
+        const q:Pt=[base[0]+x*F.grid,base[1]+y*F.grid];
+        if(this.terrain.inBounds(q[0]-F.portReach,q[1]-F.portReach)&&this.terrain.inBounds(q[0]+F.portReach,q[1]+F.portReach)&&this.inFrontier(q,F.buildingHalfWidth)&&this.facilityGround(q)&&!this.stations.some(s=>Math.abs(s.pos[0]-q[0])<F.companySpacing&&Math.abs(s.pos[1]-q[1])<F.companySpacing))return q;
+      }
+      return null;};
+    // Facilities must stay inside the surveyed frontier; fall back to its centre when the spiral point lands outside.
+    return seek(p)??seek(this.frontier.center)??snapPoint(this.terrain.nearestLand(p));
   }
   portCapacity(s:FactoryNode,side:"input"|"output") { return s.type==="transfer"?F.transferPorts:s.type==="hub"?(side==="input"?F.hubInputPorts:F.hubOutputPorts):(side==="input"?Object.keys(RECIPES[s.companyKind??"foundry"].inputs).length*F.inputPorts:(RECIPES[s.companyKind??"foundry"].output?F.outputPorts:0)); }
   portUsage(index:number,side:"input"|"output") { return this.lines.reduce((n,l)=>n+l.segments.filter(seg=>side==="input"?seg.b===index:seg.a===index).length,0); }
