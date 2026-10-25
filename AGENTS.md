@@ -26,7 +26,7 @@
 - iso.ts owns 2.5D matrices; camera applies ISO, picking inverts both, billboards use ISO_INV. Canvas navigation uses d3-zoom. Why: rendering and input align.
 - HUD uses .hud tokens, left-sidebar orders toggle and permanent bottom inventory; route actions share the top bar. Why: compact readable controls.
 - Drag connections choose the shortest reachable free-port pair around shared footprints; rendering consumes stored paths. Why: no squiggles or collisions.
-- useGameSession owns tutorial progress, shows guidance each fresh run and resumes from actual supply-chain state. Why: guidance stays discoverable.
+- useGameSession owns tutorial progress and map target projection; tutorial-steps defines the walkthrough and GuidedTutorial renders control highlights and drag arrows. Why: guidance tracks real supply-chain actions without duplicating simulation state.
 - Factory lines are connected graphs; trains follow explicit segment endpoints and cycle incident edges. Why: branches preserve physical movement.
 - Buildings rotate by quarter-turn through portPosition; connected buildings require disconnection before rotation. Why: stored paths remain valid.
 - Device-local campaign progression uses shared/levels.ts and full-run completion checks, including direct play access. Why: accounts are not required.

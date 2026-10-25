@@ -336,3 +336,31 @@
 .route-tools.hud { top:100px; bottom:100px; transform:none; overflow-y:auto; }
 .route-tools.hud .btn-ghost { flex-shrink:0; }
 @media(max-width:700px) { .order-list.hud-orders { left:60px; right:auto; top:108px; width:230px; max-height:calc(100dvh - 220px); } .collector-tools.hud,.route-tools.hud { top:108px; bottom:116px; } }
+
+/* Concise translucent orders and an arrow-led, paced walkthrough. */
+.order-list.hud-orders { --card:var(--hud-bg); left:auto; right:78px; top:92px; width:230px; max-height:min(300px,calc(100dvh - 210px)); border-color:var(--hud-border); background:var(--hud-bg); }
+.orders-compact-bar { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:2px 8px; font-size:10px; color:var(--hud-muted); border-bottom:1px solid var(--hud-border); }
+.factory-screen .orders-compact-bar .btn-ghost { height:24px; min-width:24px; padding:2px; }
+.factory-screen .hud-orders .order-row { padding:6px 9px; font-size:11px; gap:3px; }
+.hud-orders .order-number { width:18px; height:18px; font-size:10px; }
+.hud-orders .factory-progress { height:3px; margin-top:1px; }
+.tutorial-directions { position:absolute; inset:0; width:100%; height:100%; z-index:5; pointer-events:none; overflow:visible; color:var(--hud-accent); }
+.tutorial-directions marker path { fill:var(--hud-accent); }
+.tutorial-pointer,.tutorial-drag-arrow { fill:none; stroke:var(--hud-accent); stroke-width:3; filter:drop-shadow(0 1px 2px var(--hud-solid)); }
+.tutorial-drag-arrow { stroke-width:4; stroke-dasharray:9 5; animation:tutorial-flow 1.2s linear infinite; }
+.tutorial-target { fill:none; stroke:var(--hud-accent); stroke-width:2; }
+.tutorial-guide.hud.tutorial-expanded { z-index:6; left:82px; bottom:76px; width:340px; max-width:calc(100% - 160px); max-height:calc(100dvh - 180px); overflow:auto; padding:12px 15px; background:var(--hud-solid); }
+.tutorial-heading,.tutorial-navigation { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.factory-screen .tutorial-heading .btn-ghost { width:24px; height:24px; min-width:24px; padding:2px; }
+.tutorial-expanded h2 { font-size:17px; margin:4px 0 7px; }
+.tutorial-expanded p { font-size:12px; line-height:1.55; }
+.tutorial-task { display:flex; align-items:center; gap:6px; margin-top:10px; font-size:11px; color:var(--hud-accent); }
+.tutorial-navigation { margin-top:12px; }
+.tutorial-navigation .btn-brass { background:var(--hud-accent); border-color:var(--hud-accent); color:var(--map-backdrop); }
+.tutorial-guide.hud.tutorial-map-step { left:auto; right:82px; }
+@keyframes tutorial-flow { to { stroke-dashoffset:-28; } }
+@media(max-width:700px) {
+ .order-list.hud-orders { left:auto; right:56px; top:108px; width:200px; max-height:190px; }
+ .tutorial-guide.hud.tutorial-expanded { left:56px; bottom:100px; width:340px; max-width:calc(100% - 112px); max-height:calc(100dvh - 215px); }
+ .tutorial-guide.hud.tutorial-map-step { left:56px; right:auto; }
+}

@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] In-depth arrow-guided tutorial explaining every game control
+- [x] Compact translucent upper-right orders, toggled from the left
+- [x] Verify tutorial flow and orders presentation
+
 - [x] Explicit terrain crossings and shortest dry-ground rail routes
 - [x] Left-side orders drawer, placement validity colors and visible facility costs
 - [x] Transfer station with three input and three output ports
