@@ -11,6 +11,10 @@
 
 # Architecture rules
 
+- Uploaded HUD and rolling-stock artwork is mapped in render/steam-art.ts and consumed only by presentation code. Why: reskins never change simulation geometry or behavior.
+- Rolling-stock poses are sampled by render/train-poses.ts along stored rail paths with shared coupling points and isometric tangents. Why: carriages follow bends and face travel without changing simulation progress.
+- Rolling stock renders on an isolated viewport layer masked by the cached mountain silhouettes. Why: partial occlusion preserves buildings and dotted tunnel overlays.
+
 - `src/shared/` contains browser/server-safe contracts and pure logic; never import backend, game or components. Why: one network contract.
 - Client backend imports are only `src/backend/functions/*.functions.ts`: thin zod-validated createServerFn wrappers with lazy service imports. Never create a `server/` directory. Why: server code stays out of browser bundles.
 - Server-only services live in `src/backend/services/*.server.ts`; AI goes through ai.server.ts and validates or falls back to cached/shared engineer rules. Why: offline gameplay works.
@@ -38,4 +42,6 @@
 - Orders reconcile unallocated stock before consumption and after delivery. Why: crates count without reuse.
 - Transfer stations share graph storage with symmetric input/output ports; weekly line upgrades append stable IDs. Why: existing freight routing handles transfers.
 - Gift balances and cumulative undo forfeitures live in FactoryGame; placement costs read those balances. Why: gifts are free for matching uses and repeated undo cannot restore them.
+- Collector removal records actual paid cost, requires disconnection, and remaps all station references when compacting the station array. Why: free gifts cannot yield refunds and unrelated routes and orders remain valid.
+- Paid train purchase costs are checkpointed separately from gift inventory; sales consume a paid entitlement and a non-gift spare train. Why: stock remains fungible without allowing starting supplies or gifts to generate sale credits.
 - Route controls and canvas resolve the shared ordered color-token bank by rail-line order. Why: new lines remain distinct even when non-rail connections occupy IDs.

@@ -1,5 +1,28 @@
 # Roadmap
 
+- [x] Align locomotive and trailing carriages along actual rails through turns and reversals
+- [x] Derive missing directional artwork from supplied train images; verify movement and regression tests
+
+- [x] Confirm refunds for all paid buildings and purchased spare trains; preserve free-gift and undo rules
+- [x] Verify confirmation cancellation, 50% refunds and repeated undo safety
+
+- [x] Add collector removal with 50% paid-cost refunds via Trash and Delete, preserving free-item rules
+- [x] Align Rotate with the building name and close button; verify removal and popup controls
+
+- [x] Remove icon backplates, restore right-panel line symbols and use #eed2a4 ground
+- [x] Replace gradient surfaces with flat airship-inspired colors and verify presentation
+
+- [x] Add reference-inspired clockwork decoration and matching sample icons
+- [x] Theme game panels with readable icons and remove lower-right map controls
+- [x] Verify unchanged gameplay, map navigation and presentation
+
+- [x] Restore centered white route numbers, beige map and clean collector drag previews
+- [x] Apply reference palette to front page, reports and popups; retain resource artwork in recipes
+- [x] Verify requested visuals and existing interactions
+
+- [x] Apply steam-and-steel styling and supplied artwork without gameplay changes
+- [x] Verify resource placement, routing, train controls, orders and regression tests
+
 - [x] Fit left panel to its tools and add an ordered 30-color line bank
 - [x] Match upgrade names/icons to game tools
 - [x] Make gift quantities free to use, with non-refundable undo warnings and tests

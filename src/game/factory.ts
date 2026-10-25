@@ -11,7 +11,7 @@ import { findGridPath, samePoint, pointOnRoute, snapPoint } from "./grid";
 export interface FactoryNode {
   index: number; name: string; realName: string; pos: Pt; type: "hub" | "company" | "transfer";
   material?: RawMaterial; companyKind?: CompanyKind; stock: Stock; progress: number;
-  produced: number; working: boolean; collection: number; rotation?: number;
+  produced: number; working: boolean; collection: number; rotation?: number; paidCost?: number;
 }
 export interface Deposit { id: number; kind: RawMaterial; pos: Pt; remaining: number; hub: number | null; forest?: boolean }
 export interface Crate { good: Commodity; destination: number; born: number; transfers: number }
@@ -30,6 +30,7 @@ export class FactoryGame {
   readonly lines: FreightLine[] = [];
   readonly inv: Charter["start"];
   boats = 0;
+  private purchasedTrainCosts:number[]=[];
   readonly gifts = emptyGifts();
   private giftLoss = emptyGifts();
   credits = F.startingCredits; hubsAvailable = F.startingHubs;
@@ -172,8 +173,8 @@ export class FactoryGame {
     pos=snapPoint(pos);
     const error = this.planHub(kind, pos); if (error) return error;
     const index = this.stations.length;
-    if(kind === "transfer") {this.stations.push({index,name:`Transfer Station ${this.stations.filter(s=>s.type==="transfer").length+1}`,realName:"Transfer station",pos:[...pos],type:"transfer",stock:emptyStock(),progress:0,produced:0,working:false,collection:0});this.credits-=F.transferCost;return null;}
-    this.stations.push({ index, name: `${kind === "timber" ? "Logging" : kind === "iron" ? "Iron" : "Coal"} Hub ${this.hubs.length + 1}`, realName: "Collection facility", pos: [...pos], type: "hub", material: kind, stock: emptyStock(), progress: 0, produced: 0, working: false, collection: 0 });
+    if(kind === "transfer") {this.stations.push({index,name:`Transfer Station ${this.stations.filter(s=>s.type==="transfer").length+1}`,realName:"Transfer station",pos:[...pos],type:"transfer",stock:emptyStock(),progress:0,produced:0,working:false,collection:0,paidCost:F.transferCost});this.credits-=F.transferCost;return null;}
+    this.stations.push({ index, name: `${kind === "timber" ? "Logging" : kind === "iron" ? "Iron" : "Coal"} Hub ${this.hubs.length + 1}`, realName: "Collection facility", pos: [...pos], type: "hub", material: kind, stock: emptyStock(), progress: 0, produced: 0, working: false, collection: 0, paidCost:this.facilityCost(kind) });
     this.credits -= this.facilityCost(kind); this.spendSupply("collectors",1);
     for (const r of this.resources) if (r.kind === kind && r.hub === null && Math.hypot(r.pos[0] - pos[0], r.pos[1] - pos[1]) <= F.collectionRadius) r.hub = index;
     // Every forest is a timber resource: a collector on green ground harvests the woods around it.
@@ -181,6 +182,27 @@ export class FactoryGame {
     return null;
   }
   facilityCost(kind: RawMaterial | "transfer") { return kind === "transfer" ? F.transferCost : this.gifts.collectors > 0 ? 0 : F.hubCost; }
+  buildingPaidCost(index:number) {const node=this.stations[index];return !node||node.type==="company"?0:node.paidCost??(node.type==="transfer"?F.transferCost:F.hubCost);}
+  collectorRefund(index:number) { const node=this.stations[index];return node&&node.type!=="company"?Math.floor(this.buildingPaidCost(index)*F.undoRefundRate):0; }
+  removeBuilding(index:number):string|null {return this.removeCollector(index,true);}
+  removeCollector(index:number,includeTransfer=false):string|null {
+    const node=this.stations[index];
+    if(!node||(node.type!=="hub"&&!(includeTransfer&&node.type==="transfer")))return "Select a collection building first.";
+    if(this.phase==="complete")return "This charter is complete.";
+    if(this.lines.some(l=>l.segments.some(seg=>seg.a===index||seg.b===index)))return "Disconnect transport links before removing this collector.";
+    const refund=this.collectorRefund(index);
+    this.credits+=refund;
+    if(node.type==="hub"&&this.buildingPaidCost(index)>0)this.hubsAvailable++;
+    // Compact the station array and remap every reference, preserving unrelated routes and orders.
+    const remap=(id:number)=>id>index?id-1:id;
+    this.stations.splice(index,1);this.stations.forEach((s,i)=>{s.index=i;});
+    for(const r of this.resources)if(r.hub!==null)r.hub=r.hub===index?null:remap(r.hub);
+    for(const l of this.lines){l.stops=l.stops.filter(id=>id!==index).map(remap);for(const seg of l.segments){seg.a=remap(seg.a);seg.b=remap(seg.b);}for(const t of l.trains){t.cargo=t.cargo.filter(c=>c.destination!==index);for(const c of t.cargo)c.destination=remap(c.destination);if(t.visits)t.visits=Object.fromEntries(Object.entries(t.visits).filter(([id])=>Number(id)!==index).map(([id,n])=>[remap(Number(id)),n]));}}
+    for(const c of this.contracts)c.company=remap(c.company);
+    const remapOrders=(map:Map<string,number>)=>new Map([...map].filter(([key])=>Number(key.split(':')[0])!==index).map(([key,n])=>{const [id,good]=key.split(':');return [`${remap(Number(id))}:${good}`,n] as [string,number];}));
+    this.orderAllocated=remapOrders(this.orderAllocated);this.orderStock=remapOrders(this.orderStock);
+    return null;
+  }
   private spendSupply(kind: GiftKind, quantity: number) {
     this.gifts[kind] = Math.max(0,this.gifts[kind]-quantity);
     if(kind === "collectors") this.hubsAvailable -= quantity;
@@ -236,7 +258,9 @@ export class FactoryGame {
   private newTrain(): FreightTrain { return { id: this.nextTrain++, seg: 0, t: 0, dir: 1, cargo: [], dwell: 0, started: false }; }
   addTrain(id: number): string | null { const l = this.lines[id]; if (!l || l.stops.length < 2 || this.inv.locomotives < 1 || l.type !== "rail") return "A built rail line and spare locomotive are required."; this.spendSupply("locomotives",1); l.trains.push(this.newTrain()); return null; }
   addCarriage(id: number): string | null { const l = this.lines[id]; if (!l || l.stops.length < 2 || this.inv.carriages < 1 || l.type !== "rail") return "A built rail line and spare carriage are required."; this.spendSupply("carriages",1); l.carriages++; return null; }
-  buyTrain():string|null {if(this.phase==="complete")return "This charter is complete.";if(this.credits<F.locomotiveCost)return "Not enough credits for a train.";this.credits-=F.locomotiveCost;this.inv.locomotives++;return null;}
+  buyTrain():string|null {if(this.phase==="complete")return "This charter is complete.";if(this.credits<F.locomotiveCost)return "Not enough credits for a train.";this.credits-=F.locomotiveCost;this.inv.locomotives++;this.purchasedTrainCosts.push(F.locomotiveCost);return null;}
+  get trainSale() {const spent=this.purchasedTrainCosts.at(-1);return spent!==undefined&&this.inv.locomotives>this.gifts.locomotives?{spent,refund:Math.floor(spent*F.undoRefundRate)}:null;}
+  sellTrain():string|null {if(this.phase==="complete")return "This charter is complete.";const sale=this.trainSale;if(!sale)return "Return a purchased train to your supplies before selling it.";this.purchasedTrainCosts.pop();this.inv.locomotives--;this.credits+=sale.refund;return null;}
   removeTrain(id:number):string|null {const l=this.lines[id];if(!l||l.type!=="rail"||!l.trains.length)return "No train to remove.";const tr=l.trains.pop();if(!tr)return "No train to remove.";const edge=l.segments[tr.seg],node=edge?this.stations[tr.dir===1?edge.a:edge.b]:undefined;if(node)for(const crate of tr.cargo)node.stock[crate.good]++;this.inv.locomotives++;return null;}
   removeCarriage(id:number):string|null {const l=this.lines[id];if(!l||l.type!=="rail"||l.carriages<1)return "No carriage to remove.";l.carriages--;this.inv.carriages++;for(const tr of l.trains){const edge=l.segments[tr.seg],node=edge?this.stations[tr.dir===1?edge.a:edge.b]:undefined;if(node)for(const crate of tr.cargo.splice(this.trainCapacity(l)))node.stock[crate.good]++;}return null;}
   clearLine(id: number) {
@@ -279,12 +303,12 @@ export class FactoryGame {
     this.lines.push({id:this.lines.length,name:"River freight",type:"boat",stops:[a,b],segments:[{a,b,path,waterPath:water,cost:0,crossings:[],survey:{...this.terrain.survey(start,end),length:Math.max(F.grid,(water.length-1)*F.grid),grade:0}}],trains:[this.newTrain()],carriages:0});this.spendSupply("boats",1);return{ok:true,cost:0,path};
   }
   /** Construction checkpoints stay in the headless simulation, never in React. */
-  checkpoint() { return JSON.stringify({stations:this.stations,resources:this.resources,lines:this.lines,inv:this.inv,boats:this.boats,credits:this.credits,undoLoss:this.undoLoss,gifts:this.gifts,giftLoss:this.giftLoss,hubsAvailable:this.hubsAvailable,trackUsed:this.trackUsed,nextTrain:this.nextTrain,time:this.time,week:this.week,weekTime:this.weekTime,phase:"running",contracts:this.contracts,delivered:this.delivered,products:this.products,revenue:this.revenue,contractsCompleted:this.contractsCompleted,contractsMissed:this.contractsMissed,orderAllocated:[...this.orderAllocated],orderStock:[...this.orderStock],contractClock:this.contractClock,nextContract:this.nextContract,tripSum:this.tripSum,transferSum:this.transferSum,rngState:this.rng.snapshot()}); }
+  checkpoint() { return JSON.stringify({stations:this.stations,resources:this.resources,lines:this.lines,inv:this.inv,boats:this.boats,purchasedTrainCosts:this.purchasedTrainCosts,credits:this.credits,undoLoss:this.undoLoss,gifts:this.gifts,giftLoss:this.giftLoss,hubsAvailable:this.hubsAvailable,trackUsed:this.trackUsed,nextTrain:this.nextTrain,time:this.time,week:this.week,weekTime:this.weekTime,phase:"running",contracts:this.contracts,delivered:this.delivered,products:this.products,revenue:this.revenue,contractsCompleted:this.contractsCompleted,contractsMissed:this.contractsMissed,orderAllocated:[...this.orderAllocated],orderStock:[...this.orderStock],contractClock:this.contractClock,nextContract:this.nextContract,tripSum:this.tripSum,transferSum:this.transferSum,rngState:this.rng.snapshot()}); }
   rememberAction(before:string) { if(before!==this.checkpoint()){const state=JSON.parse(before);this.history.push({snapshot:before,spent:Math.max(0,state.credits-this.credits),lossBase:state.undoLoss??0,gifts:Object.fromEntries(Object.keys(this.gifts).map(k=>[k,Math.max(0,(state.gifts?.[k]??0)-this.gifts[k as GiftKind])])) as Record<GiftKind,number>});if(this.history.length>50)this.history.shift();} }
   get undoRefund() {const last=this.history.at(-1);return last&&last.spent>0?{spent:last.spent,refund:Math.floor(last.spent*F.undoRefundRate)}:null;}
   get undoGiftWarning() {const last=this.history.at(-1);return last&&Object.values(last.gifts).some(n=>n>0)?Object.entries(last.gifts).filter(([,n])=>n>0).map(([kind,quantity])=>({kind:kind as GiftKind,quantity})):null;}
   get canUndo() { return this.history.length>0; }
-  undoAction():string|null { const saved=this.history.pop();if(!saved)return "Nothing to undo.";const state=JSON.parse(saved.snapshot);for(const kind of Object.keys(this.gifts) as GiftKind[])this.giftLoss[kind]+=saved.gifts[kind];this.undoLoss+=saved.spent-Math.floor(saved.spent*F.undoRefundRate);this.stations.splice(0,this.stations.length,...state.stations);this.resources.splice(0,this.resources.length,...state.resources);this.lines.splice(0,this.lines.length,...state.lines);Object.assign(this.inv,state.inv);this.boats=state.boats;this.credits=Math.max(0,state.credits-(this.undoLoss-saved.lossBase));this.hubsAvailable=state.hubsAvailable;for(const kind of Object.keys(this.gifts) as GiftKind[]){const lost=this.giftLoss[kind]-(state.giftLoss?.[kind]??0);this.gifts[kind]=Math.max(0,(state.gifts?.[kind]??0)-lost);if(kind==="collectors")this.hubsAvailable=Math.max(0,this.hubsAvailable-lost);else if(kind==="boats")this.boats=Math.max(0,this.boats-lost);else this.inv[kind]=Math.max(0,this.inv[kind]-lost);}this.trackUsed=state.trackUsed;this.nextTrain=state.nextTrain;for(const key of ["time","week","weekTime","phase","contracts","delivered","products","revenue","contractsCompleted","contractsMissed","contractClock","nextContract","tripSum","transferSum"] as const)Object.assign(this,{[key]:state[key]});this.orderAllocated=new Map(state.orderAllocated);this.orderStock=new Map(state.orderStock);this.rng.restore(state.rngState);this.offers=[];return null; }
+  undoAction():string|null { const saved=this.history.pop();if(!saved)return "Nothing to undo.";const state=JSON.parse(saved.snapshot);for(const kind of Object.keys(this.gifts) as GiftKind[])this.giftLoss[kind]+=saved.gifts[kind];this.undoLoss+=saved.spent-Math.floor(saved.spent*F.undoRefundRate);this.stations.splice(0,this.stations.length,...state.stations);this.resources.splice(0,this.resources.length,...state.resources);this.lines.splice(0,this.lines.length,...state.lines);Object.assign(this.inv,state.inv);this.boats=state.boats;this.purchasedTrainCosts=[...state.purchasedTrainCosts??[]];this.credits=Math.max(0,state.credits-(this.undoLoss-saved.lossBase));this.hubsAvailable=state.hubsAvailable;for(const kind of Object.keys(this.gifts) as GiftKind[]){const lost=this.giftLoss[kind]-(state.giftLoss?.[kind]??0);this.gifts[kind]=Math.max(0,(state.gifts?.[kind]??0)-lost);if(kind==="collectors")this.hubsAvailable=Math.max(0,this.hubsAvailable-lost);else if(kind==="boats")this.boats=Math.max(0,this.boats-lost);else this.inv[kind]=Math.max(0,this.inv[kind]-lost);}this.trackUsed=state.trackUsed;this.nextTrain=state.nextTrain;for(const key of ["time","week","weekTime","phase","contracts","delivered","products","revenue","contractsCompleted","contractsMissed","contractClock","nextContract","tripSum","transferSum"] as const)Object.assign(this,{[key]:state[key]});this.orderAllocated=new Map(state.orderAllocated);this.orderStock=new Map(state.orderStock);this.rng.restore(state.rngState);this.offers=[];return null; }
   segmentAt(p:Pt,radius=F.grid*.65):{line:number;segment:number}|null { let best=radius,result:null|{line:number;segment:number}=null;for(const l of this.lines)for(let i=0;i<l.segments.length;i++){const path=l.segments[i]?.path??[];for(let j=1;j<path.length;j++){const a=path[j-1],b=path[j];if(!a||!b)continue;const dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy||1))),d=Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);if(d<best){best=d;result={line:l.id,segment:i};}}}return result; }
   canRemoveSegment(id:number,index:number) { const l=this.lines[id],seg=l?.segments[index];return !!l&&!!seg&&[seg.a,seg.b].some(node=>l.segments.filter(s=>s.a===node||s.b===node).length===1); }
   removeSegment(id:number,index:number):string|null {

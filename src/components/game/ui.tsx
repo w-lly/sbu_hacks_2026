@@ -29,7 +29,7 @@ export function Btn({ children, variant = "ghost", className = "", ...props }: B
 
 export function Modal({ children, wide }: { children: ReactNode; wide?: boolean }) {
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-20 flex items-center justify-center bg-background/75 p-4 backdrop-blur-[2px]">
+    <div role="dialog" aria-modal="true" className="reference-theme fixed inset-0 z-20 flex items-center justify-center bg-background/75 p-4 backdrop-blur-[2px]">
       <div className={`brass-frame max-h-full w-full overflow-y-auto bg-card p-6 ${wide ? "max-w-3xl" : "max-w-xl"}`}>{children}</div>
     </div>
   );

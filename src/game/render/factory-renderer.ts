@@ -1,26 +1,36 @@
 /** Continuous terrain, replaceable building artwork and compact connection dots. */
 import { CONFIG } from '../config';
-import type { FactoryGame, FactoryNode } from '../factory';
+import type { FactoryGame, FactoryNode, FreightLine, FreightTrain } from '../factory';
 import { GOODS, RECIPES, type RawMaterial } from '@/shared/factory';
 import { gridRoute, snapPoint } from '../grid';
 import type { Pt } from '../projection';
 import { PALETTE as P } from './palette';
 import { ICON_PATHS } from './icon-paths';
 import { BUILDING_SPRITES } from './building-sprites';
-import { ISO_INV, UP } from './iso';
+import { STEAM_ART } from './steam-art';
+import { ISO_INV, UP, toIso } from './iso';
+import { trainPoses } from './train-poses';
 import { LINE_COLOR_TOKENS, lineColorIndex } from '@/shared/line-colors';
 export interface FactoryOverlay { selectedLine:number|null;hover:Pt|null;placement:RawMaterial|"transfer"|null;selectedNode:number|null;tubeFrom:number|null;dragFrom?:number|null;draftPath?:Pt[];tutorialTarget?:number|null;tutorialSource?:number|null;selectedTrack?:{line:number;segment:number}|null }
 
 const F=CONFIG.factory;
 export class FactoryRenderer {
  private terrain:HTMLCanvasElement;
+ private mountains:HTMLCanvasElement;
+ private rollingStock=document.createElement('canvas');
+ private mountainGround=new Path2D();
  private colors:string[];
  private lineColor(id:number) { const rail=this.game.railLines().findIndex(l=>l.id===id);return this.colors[lineColorIndex(rail<0?id:rail)]??P.ink; }
+ private artwork:Record<string,HTMLImageElement> = {};
+ private puffs:{x:number;y:number;born:number}[]=[];
+ private puffTime=0;
  private sprites:Record<string,HTMLImageElement> = {};
  constructor(private ctx:CanvasRenderingContext2D,private game:FactoryGame,dpr:number){
+   for(const [kind,url] of Object.entries(STEAM_ART)){const image=new Image();image.src=url;this.artwork[kind]=image;}
    this.colors=LINE_COLOR_TOKENS.map(token=>getComputedStyle(document.documentElement).getPropertyValue(token).trim());
    for(const [kind,url] of Object.entries(BUILDING_SPRITES)){const image=new Image();image.src=url;this.sprites[kind]=image;}
   this.terrain=document.createElement('canvas');const S=.5;this.terrain.width=F.worldWidth*S;this.terrain.height=F.worldHeight*S;
+  this.mountains=document.createElement('canvas');this.mountains.width=this.terrain.width;this.mountains.height=this.terrain.height;
   const c=this.terrain.getContext('2d');if(!c)return;c.scale(S,S);const css=(v:string)=>getComputedStyle(document.documentElement).getPropertyValue(v.slice(4,-1)).trim();
   c.fillStyle=css(P.biomes.meadow);c.fillRect(0,0,F.worldWidth,F.worldHeight);
   const ring=(r:Pt[],dx=0,dy=0)=>{c.beginPath();r.forEach(([x,y],i)=>i?c.lineTo(x+dx,y+dy):c.moveTo(x+dx,y+dy));c.closePath();};
@@ -31,6 +41,14 @@ export class FactoryRenderer {
   for(const tile of hills){ring(tile.ring);c.fillStyle=P.hillShadow;c.fill();}
   for(let layer=1;layer<=4;layer++)for(const tile of hills){ring(tile.ring,UP[0]*layer*10,UP[1]*layer*10);c.fillStyle=layer===4?css(P.biomes.hills):P.hillSide;c.fill();}
   for(const tile of hills){ring(tile.ring,UP[0]*40,UP[1]*40);c.strokeStyle=P.hillRim;c.lineWidth=3;c.stroke();}
+  const mountainContext=this.mountains.getContext('2d');
+  if(mountainContext){
+   mountainContext.scale(S,S);
+   const mountainRing=(points:Pt[],height=0)=>{mountainContext.beginPath();points.forEach(([x,y],i)=>i?mountainContext.lineTo(x+UP[0]*height,y+UP[1]*height):mountainContext.moveTo(x+UP[0]*height,y+UP[1]*height));mountainContext.closePath();};
+   for(const tile of hills){tile.ring.forEach(([x,y],i)=>i?this.mountainGround.lineTo(x,y):this.mountainGround.moveTo(x,y));this.mountainGround.closePath();mountainRing(tile.ring);mountainContext.fillStyle=P.hillShadow;mountainContext.fill();}
+   for(let layer=1;layer<=4;layer++)for(const tile of hills){mountainRing(tile.ring,layer*10);mountainContext.fillStyle=layer===4?css(P.biomes.hills):P.hillSide;mountainContext.fill();}
+   for(const tile of hills){mountainRing(tile.ring,40);mountainContext.strokeStyle=P.hillRim;mountainContext.lineWidth=3;mountainContext.stroke();}
+  }
   // Upright tree billboards on forest ground.
   let n=0;for(let y=30;y<F.worldHeight;y+=40)for(let x=30;x<F.worldWidth;x+=40){n++;const jx=x+((n*73)%31)-15,jy=y+((n*47)%29)-14;if(!game.world.isForest(jx,jy)||game.world.isWater(jx,jy)||game.world.isMountain(jx,jy))continue;c.save();c.translate(jx,jy);c.transform(...ISO_INV);c.fillStyle=P.shadow;c.beginPath();c.ellipse(0,0,10,4,0,0,Math.PI*2);c.fill();c.fillStyle=P.treeDark;c.beginPath();c.moveTo(0,-30);c.lineTo(-10,-4);c.lineTo(10,-4);c.closePath();c.fill();c.fillStyle=P.treeLight;c.beginPath();c.moveTo(0,-30);c.lineTo(-10,-4);c.lineTo(0,-4);c.closePath();c.fill();c.restore();}
  }
@@ -38,21 +56,54 @@ export class FactoryRenderer {
  private path(points:Pt[]){const c=this.ctx;c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));}
  private icon(p:Pt,kind:string,size:number){const c=this.ctx,parts=ICON_PATHS[kind as keyof typeof ICON_PATHS];if(!parts)return;c.save();c.translate(p[0]-size/2,p[1]-size/2);c.scale(size/24,size/24);c.lineWidth=1.7;c.lineCap='round';c.lineJoin='round';c.strokeStyle=P.ink;for(const [tag,a] of parts){const attrs=a as unknown as Record<string,string|number>;c.beginPath();if(tag==='path')c.stroke(new Path2D(String(attrs['d'])));else if(tag==='circle'){c.arc(Number(attrs['cx']),Number(attrs['cy']),Number(attrs['r']),0,Math.PI*2);c.stroke();}else if(tag==='rect'){c.roundRect(Number(attrs['x']),Number(attrs['y']),Number(attrs['width']),Number(attrs['height']),Number(attrs['rx']??0));c.stroke();}else if(tag==='line'){c.moveTo(Number(attrs['x1']),Number(attrs['y1']));c.lineTo(Number(attrs['x2']),Number(attrs['y2']));c.stroke();}else if(tag==='polyline'||tag==='polygon'){String(attrs['points']).split(' ').forEach((s,i)=>{const [x,y]=s.split(',').map(Number);if(x!==undefined&&y!==undefined)i?c.lineTo(x,y):c.moveTo(x,y);});if(tag==='polygon')c.closePath();c.stroke();}}c.restore();}
  draw(o:FactoryOverlay){
-  const c=this.ctx,g=this.game;c.drawImage(this.terrain,0,0,F.worldWidth,F.worldHeight);
+  let c=this.ctx;const g=this.game;c.drawImage(this.terrain,0,0,F.worldWidth,F.worldHeight);
   for(const r of g.resources){if(r.forest)continue;c.save();c.globalAlpha=r.remaining>0?1:.35;c.fillStyle=getComputedStyle(document.documentElement).getPropertyValue(P.deposits[r.kind].slice(4,-1)).trim();c.beginPath();for(let i=0;i<=24;i++){const a=i/24*Math.PI*2,radius=60+9*Math.sin(a*3+r.id)+7*Math.cos(a*5+r.id);const x=r.pos[0]+Math.cos(a)*radius,y=r.pos[1]+Math.sin(a)*radius;i?c.lineTo(x,y):c.moveTo(x,y);}c.closePath();c.fill();c.restore();}
   const fr=g.frontier;c.save();c.beginPath();c.rect(0,0,F.worldWidth,F.worldHeight);c.arc(fr.center[0],fr.center[1],fr.radius,0,Math.PI*2,true);c.fillStyle=P.fog;c.fill('evenodd');c.beginPath();c.arc(fr.center[0],fr.center[1],fr.radius,0,Math.PI*2);c.setLineDash([18,12]);c.strokeStyle=P.frontier;c.lineWidth=4;c.stroke();c.restore();
   if(o.placement||o.dragFrom!==null&&o.dragFrom!==undefined){c.strokeStyle=P.grid;c.lineWidth=1.4;c.beginPath();for(let x=0;x<F.worldWidth;x+=F.grid){c.moveTo(x,0);c.lineTo(x,F.worldHeight);}for(let y=0;y<F.worldHeight;y+=F.grid){c.moveTo(0,y);c.lineTo(F.worldWidth,y);}c.stroke();}
   for(const l of g.lines){c.save();c.lineJoin='round';c.lineCap='round';for(const [segIndex,seg] of l.segments.entries()){const a=g.stations[seg.a],b=g.stations[seg.b];if(!a||!b)continue;const path=seg.path??gridRoute(a.pos,b.pos,l.id);if(o.selectedTrack?.line===l.id&&o.selectedTrack.segment===segIndex){this.path(path);c.strokeStyle=P.brass;c.lineWidth=16;c.stroke();}this.path(path);c.strokeStyle=P.station;c.lineWidth=o.selectedLine===l.id?11:8;c.stroke();this.path(path);c.strokeStyle=this.lineColor(l.id);c.lineWidth=o.selectedLine===l.id?5:4;if(l.type==='tube'||l.type==='boat'||seg.crossings.includes('tunnel'))c.setLineDash([5,5]);c.stroke();c.setLineDash([]);if(l.type==='boat'&&seg.waterPath){for(const dock of [seg.waterPath[0],seg.waterPath.at(-1)]){if(!dock)continue;c.fillStyle=P.station;c.strokeStyle=P.ink;c.lineWidth=2;c.beginPath();c.roundRect(dock[0]-12,dock[1]-8,24,16,2);c.fill();c.stroke();}}}c.restore();}
+  // Raised mountains occlude rails behind them; only real tunnel footprints draw on top.
+  c.save();c.beginPath();c.arc(fr.center[0],fr.center[1],fr.radius,0,Math.PI*2);c.clip();c.drawImage(this.mountains,0,0,F.worldWidth,F.worldHeight);c.restore();
+  c.save();c.clip(this.mountainGround);c.lineCap='round';c.lineJoin='round';c.setLineDash([5,5]);
+  for(const l of g.lines)for(const seg of l.segments){if(!seg.crossings.includes('tunnel')||!seg.path)continue;this.path(seg.path);c.strokeStyle=this.lineColor(l.id);c.lineWidth=o.selectedLine===l.id?5:4;c.stroke();}
+  c.restore();
   if(o.placement&&o.hover){const p=snapPoint(o.hover),error=g.planHub(o.placement,p);c.save();c.fillStyle=error?P.danger:P.output;c.globalAlpha=.35;c.fillRect(p[0]-F.buildingHalfWidth,p[1]-F.buildingHalfWidth,F.buildingHalfWidth*2,F.buildingHalfWidth*2);c.globalAlpha=1;c.strokeStyle=error?P.danger:P.output;c.lineWidth=5;c.strokeRect(p[0]-F.buildingHalfWidth,p[1]-F.buildingHalfWidth,F.buildingHalfWidth*2,F.buildingHalfWidth*2);if(o.placement!=='transfer'){c.setLineDash([4,4]);c.beginPath();c.arc(...p,F.collectionRadius,0,Math.PI*2);c.stroke();}c.restore();this.building(p,o.placement);}
   if(o.draftPath?.length){c.save();c.strokeStyle=this.lineColor(o.selectedLine??0);c.lineWidth=4;this.path(o.draftPath);c.stroke();c.restore();}
   for(const s of g.stations)this.node(s,o);
-  for(const l of g.lines)for(const t of l.trains){const p=g.trainPos(l,t),col=this.lineColor(l.id),len=18+l.carriages*4,shape=(dx:number,dy:number)=>{c.save();c.translate(p.x+dx,p.y+dy);c.rotate(p.ang);c.beginPath();if(l.type==='boat'){c.moveTo(-12,-7);c.lineTo(12,-7);c.lineTo(16,0);c.lineTo(12,7);c.lineTo(-12,7);c.closePath();}else c.roundRect(-9,-5,len,10,3);c.restore();};
+  // Isolate rolling stock so mountain silhouettes erase only obscured sprite pixels,
+  // never buildings, rails or the visible dotted tunnel overlay.
+  const main=c,layer=this.rollingStock;
+  if(layer.width!==main.canvas.width||layer.height!==main.canvas.height){layer.width=main.canvas.width;layer.height=main.canvas.height;}
+  const stock=layer.getContext('2d');
+  if(stock){stock.setTransform(1,0,0,1,0,0);stock.clearRect(0,0,layer.width,layer.height);stock.setTransform(main.getTransform());this.ctx=stock;c=stock;}
+  for(const l of g.lines)for(const t of l.trains){const p=g.trainPos(l,t);if(l.type==='rail'&&this.drawSteamTrain(l,t))continue;const col=this.lineColor(l.id),len=18+l.carriages*4,shape=(dx:number,dy:number)=>{c.save();c.translate(p.x+dx,p.y+dy);c.rotate(p.ang);c.beginPath();if(l.type==='boat'){c.moveTo(-12,-7);c.lineTo(12,-7);c.lineTo(16,0);c.lineTo(12,7);c.lineTo(-12,7);c.closePath();}else c.roundRect(-9,-5,len,10,3);c.restore();};
    shape(-UP[0]*2,-UP[1]*2);c.fillStyle=P.shadow;c.fill();
    for(let h=1;h<=7;h++){shape(UP[0]*h,UP[1]*h);c.fillStyle=h===7?col:P.trainSide;c.fill();}
    shape(UP[0]*7,UP[1]*7);c.strokeStyle=P.station;c.lineWidth=1.5;c.stroke();}
+  this.puffs=this.puffs.filter(p=>g.time-p.born<1.5);for(const puff of this.puffs){const age=g.time-puff.born;c.save();c.translate(puff.x+UP[0]*age*30,puff.y+UP[1]*age*30);c.transform(...ISO_INV);c.globalAlpha=(1-age/1.5)*.45;c.fillStyle=P.steam;c.beginPath();c.arc(0,-15-age*10,3+age*8,0,Math.PI*2);c.fill();c.restore();}
+  if(stock){stock.save();stock.beginPath();stock.arc(fr.center[0],fr.center[1],fr.radius,0,Math.PI*2);stock.clip();stock.globalCompositeOperation='destination-out';stock.drawImage(this.mountains,0,0,F.worldWidth,F.worldHeight);stock.restore();this.ctx=main;c=main;main.save();main.setTransform(1,0,0,1,0,0);main.drawImage(layer,0,0);main.restore();}
   if(o.hover&&!o.placement&&!o.draftPath?.length){const idx=g.stationAt(...o.hover),node=g.stations[idx],port=g.portAt(o.hover,'input')??g.portAt(o.hover,'output'),r=g.resources.find(r=>Math.abs(r.pos[0]-(o.hover?.[0]??0))<60&&Math.abs(r.pos[1]-(o.hover?.[1]??0))<60);let label=node?.name??(r?GOODS[r.kind].label:'');if(port){const side=g.portAt(o.hover,'input')?'input':'output';label=`${side==='input'?'Input':'Output'} · ${g.stations[port.index]?.name}`;}if(label){const [hx,hy]=o.hover;c.save();c.translate(hx,hy);c.transform(...ISO_INV);const x=0,y=0;c.font='600 16px Arial';const w=c.measureText(label).width+24;c.fillStyle=P.station;c.strokeStyle=P.inkSoft;c.beginPath();c.roundRect((x+16),(y-60),w,32,6);c.fill();c.stroke();c.fillStyle=P.ink;c.textAlign='left';c.fillText(label,(x+16)+12,(y-60)+21);c.restore();}}
  }
-  private building(p:Pt,kind:string,_rotation=0){const c=this.ctx,image=this.sprites[kind],h=F.buildingHalfWidth;c.save();c.translate(...p);c.transform(...ISO_INV);c.fillStyle=P.shadow;c.beginPath();c.ellipse(0,h*.35,h*1.05,h*.42,0,0,Math.PI*2);c.fill();if(image?.complete&&image.naturalWidth>0)c.drawImage(image,-h*1.1,-h*1.55,h*2.2,h*2.2);else this.icon([0,-h*.4],kind,40);c.restore();}
+  private drawSteamTrain(line:FreightLine,train:FreightTrain){
+  const engine=this.artwork['locomotive'],carriage=this.artwork['carriage'];if(!engine?.complete||!engine.naturalWidth)return false;
+  const c=this.ctx,poses=trainPoses(line,train,this.game.stations),head=poses[0];if(!head)return false;
+  c.save();c.strokeStyle=P.trainSide;c.lineWidth=3;c.lineCap='round';
+  for(let i=1;i<poses.length;i++){const ahead=poses[i-1],car=poses[i];if(!ahead||!car)continue;this.path([[ahead.x,ahead.y],ahead.rear,car.front,[car.x,car.y]]);c.stroke();}c.restore();
+  // Sort the billboards by screen depth, not train order, so bends overlap naturally.
+  for(const {pose,index} of poses.map((pose,index)=>({pose,index})).sort((a,b)=>toIso([a.pose.x,a.pose.y])[1]-toIso([b.pose.x,b.pose.y])[1])){
+   const away=Math.sin(pose.ang)<0,right=Math.cos(pose.ang)>0,rear=this.artwork['locomotiveRear'];
+   const image=index===0?(away&&rear?.complete&&rear.naturalWidth?rear:engine):carriage;if(!image?.complete||!image.naturalWidth)continue;
+   const useRear=index===0&&image===rear,mirror=index>0?right!==away:useRear?!right:right;
+   // Carriages have no locomotive nose: reverse their axis without rotating the roof upside down.
+   const reverseAxis=useRear||index>0&&away;
+   const base=reverseAxis?(mirror?-Math.PI+Math.atan(.4):-Math.atan(.4)):(mirror?Math.atan(.4):Math.PI-Math.atan(.4));
+   const delta=Math.atan2(Math.sin(pose.ang-base),Math.cos(pose.ang-base));
+   const [sx,sy]=toIso([pose.front[0]-pose.rear[0],pose.front[1]-pose.rear[1]]),width=Math.max(12,Math.hypot(sx,sy)*1.12),height=width*image.naturalHeight/image.naturalWidth;
+   c.save();c.translate(pose.x,pose.y);c.transform(...ISO_INV);c.rotate(delta);if(mirror)c.scale(-1,1);c.drawImage(image,-width/2,-height*.82,width,height);c.restore();
+  }
+  if(this.game.time-this.puffTime>.15){this.puffs.push({x:head.x,y:head.y,born:this.game.time});this.puffTime=this.game.time;}
+  return true;
+ }
+ private building(p:Pt,kind:string,_rotation=0){const c=this.ctx,image=this.sprites[kind],h=F.buildingHalfWidth;c.save();c.translate(...p);c.transform(...ISO_INV);c.fillStyle=P.shadow;c.beginPath();c.ellipse(0,h*.35,h*1.05,h*.42,0,0,Math.PI*2);c.fill();if(image?.complete&&image.naturalWidth>0)c.drawImage(image,-h*1.1,-h*1.55,h*2.2,h*2.2);else this.icon([0,-h*.4],kind,40);c.restore();}
   private node(s:FactoryNode,o:FactoryOverlay){const c=this.ctx,g=this.game,[x,y]=s.pos;c.save();if(s.index===o.selectedNode||s.index===o.tutorialTarget||s.index===o.tutorialSource){c.strokeStyle=P.output;c.lineWidth=3;c.setLineDash([5,5]);c.strokeRect(x-56,y-56,112,112);c.setLineDash([]);}if(o.draftPath?.length&&o.hover){const snap=g.portAt(o.hover,'input');if(snap?.index===s.index){const p=g.portPosition(s.index,'input',snap.slot);c.beginPath();c.arc(...p,17,0,Math.PI*2);c.strokeStyle=P.input;c.lineWidth=3;c.stroke();}}const orders=g.contracts.filter(order=>order.company===s.index&&order.status==='open');if(orders.length){c.save();c.strokeStyle=P.brass;c.shadowColor=P.brass;c.shadowBlur=18;c.lineWidth=5;c.beginPath();c.ellipse(x,y,66,60,0,0,Math.PI*2);c.stroke();c.restore();}this.building(s.pos,s.type==='transfer'?'transfer':s.companyKind??s.material??'iron',s.rotation??0);
    if(orders.length||s.index===o.selectedNode||s.index===o.tutorialTarget||s.index===o.tutorialSource){c.save();c.translate(x,y);c.transform(...ISO_INV);c.font='bold 15px Arial';c.textAlign='center';const label=orders.length?`#${orders.map(order=>order.id).join(' · #')}  ${s.name}`:s.name,w=c.measureText(label).width+20;c.fillStyle=P.station;c.strokeStyle=orders.length?P.brass:P.output;c.lineWidth=2;c.beginPath();c.roundRect(-w/2,-100,w,26,4);c.fill();c.stroke();c.fillStyle=P.ink;c.fillText(label,0,-82);if(s.index===o.tutorialTarget||s.index===o.tutorialSource){c.fillStyle=P.output;c.beginPath();c.moveTo(0,-48);c.lineTo(-9,-64);c.lineTo(9,-64);c.closePath();c.fill();}c.restore();}
   for(const side of ['input','output'] as const)for(let i=0;i<g.portCapacity(s,side);i++){const [px,py]=g.portPosition(s.index,side,i),occupied=g.portOccupied(s.index,side,i),color=side==='input'?P.input:P.output;c.beginPath();c.arc(px,py,9,0,Math.PI*2);c.fillStyle=P.station;c.fill();c.strokeStyle=color;c.lineWidth=3;c.stroke();c.beginPath();c.arc(px,py,occupied?6:4,0,Math.PI*2);c.fillStyle=color;c.fill();}
